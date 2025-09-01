@@ -26,7 +26,7 @@ function keller_banner(){
            DitxSS Android\e[36m Fucking Cheaters\e[91m\e[37m discord.gg/spacex\e[91m
             
                         ______   ____ __  __
-                        |  _ \(_)|_  _\ \/ /      
+                        |  _ \(_)|_  _| \ \/ /     
                         | | | | |  | |  \  /       
                         | |_| | |  | |  /  \   
                         |____/|_|  |_| /_/\_\    
@@ -2271,43 +2271,59 @@ if (strpos($resultadoStat, 'File:') !== false) {
                     echo $vermelho . "[*] OBB deletada e/ou inexistente!\n";
                 }
                 
+                
+                
                                 
                 
                  echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
 
-                $rutasWhatsApp = [
-                 '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents',
-                 '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Private',
-                 '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Sent'
-                 ]       ;
+// Verificar rutas de WhatsApp por separado
+$rutasWhatsApp1 = '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents';
+$rutasWhatsApp2 = '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Private';
+$rutasWhatsApp3 = '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Sent';
 
-                    foreach ($rutasWhatsApp as $ruta) {
-                        $comandoStat = 'adb shell stat ' . escapeshellarg($ruta) . ' 2>&1';
-                        $resultadoStat = shell_exec($comandoStat);
+$rutasParaVerificar = [$rutasWhatsApp1, $rutasWhatsApp2, $rutasWhatsApp3];
 
-                       if (strpos($resultadoStat, 'File:') !== false) {
-                        preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
-                        preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
+foreach ($rutasParaVerificar as $ruta) {
+    $comandoStat = 'adb shell stat ' . escapeshellarg($ruta) . ' 2>&1';
+    $resultadoStat = shell_exec($comandoStat);
+    
+    // Depuración: mostrar resultado del comando
+    echo $bold . $cinza . "[DEBUG] Resultado para $ruta: " . trim($resultadoStat) . "\n" . $cln;
 
-                       if ($matchModify && $matchChange) {
-                        $dataModify = trim($matchModify[1]);
-                        $dataChange = trim($matchChange[1]);
+    if (strpos($resultadoStat, 'File:') !== false) {
+        preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
+        preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
 
-                        $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
-                        $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
+        if ($matchModify && $matchChange) {
+            $dataModify = trim($matchModify[1]);
+            $dataChange = trim($matchChange[1]);
 
-                      if ($dataModifyFormatada !== $dataChangeFormatada) {
-                     echo $bold . $vermelho . "[!] WhatsApp Documents Modificado\n";
-                     echo $bold . $amarelo . "[i] Ruta: " . $ruta . "\n";
-                     echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
-                    }
-                    }
-                 }
+            $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
+            $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
+
+            if ($dataModifyFormatada !== $dataChangeFormatada) {
+                echo $bold . $vermelho . "[!] WhatsApp Documents Modificado\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $ruta . "\n";
+                echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+            } else {
+                echo $bold . $fverde . "[i] No se detectaron modificaciones en: " . $ruta . "\n\n";
             }
+        } else {
+            echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . $ruta . "\n\n";
+        }
+    } else {
+        echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . $ruta . "\n\n";
+    }
+}
 
+// Verificar ruta Download
 $rutaDownload = '/storage/emulated/0/Download';
 $comandoStat = 'adb shell stat ' . escapeshellarg($rutaDownload) . ' 2>&1';
 $resultadoStat = shell_exec($comandoStat);
+
+// Depuración: mostrar resultado del comando
+echo $bold . $cinza . "[DEBUG] Resultado para $rutaDownload: " . trim($resultadoStat) . "\n" . $cln;
 
 if (strpos($resultadoStat, 'File:') !== false) {
     preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
@@ -2323,13 +2339,23 @@ if (strpos($resultadoStat, 'File:') !== false) {
         if ($dataModifyFormatada !== $dataChangeFormatada) {
             echo $bold . $vermelho . "[!] Download Modificado\n";
             echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+        } else {
+            echo $bold . $fverde . "[i] No se detectaron modificaciones en: " . $rutaDownload . "\n\n";
         }
+    } else {
+        echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . $rutaDownload . "\n\n";
     }
+} else {
+    echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . $rutaDownload . "\n\n";
 }
 
+// Verificar ruta /data/app
 $rutaDataApp = '/data/app';
 $comandoStat = 'adb shell stat ' . escapeshellarg($rutaDataApp) . ' 2>&1';
 $resultadoStat = shell_exec($comandoStat);
+
+// Depuración: mostrar resultado del comando
+echo $bold . $cinza . "[DEBUG] Resultado para $rutaDataApp: " . trim($resultadoStat) . "\n" . $cln;
 
 if (strpos($resultadoStat, 'File:') !== false) {
     preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
@@ -2346,8 +2372,14 @@ if (strpos($resultadoStat, 'File:') !== false) {
             echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas\n";
             echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
             echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+        } else {
+            echo $bold . $fverde . "[i] No se detectaron modificaciones en: " . $rutaDataApp . "\n\n";
         }
+    } else {
+        echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . $rutaDataApp . "\n\n";
     }
+} else {
+    echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . $rutaDataApp . "\n\n";
 }
                 
                 
