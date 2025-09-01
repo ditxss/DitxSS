@@ -30,11 +30,12 @@ function keller_banner(){
                         | | | | |  | |  \  /       
                         | |_| | |  | |  /  \   
                         |____/|_|  |_| /_/\_\    
-                        ____   ____               
-                       / ___| / ___|              
-                       \___ \ \___ \              
-                       ___) | ___) |              
-                       |____/ |____/    
+                        
+                             ____   ____        
+                            / ___| / ___|         
+                            \___ \ \___ \        
+                             ___) | ___) |        
+                            |____/ |____/    
                         
 
 
@@ -184,9 +185,9 @@ escolheropcoes:
                 $resultadoVersaoAndroid = shell_exec($comandoVersaoAndroid);
 
                 if (!empty($resultadoVersaoAndroid)) {
-                    echo $bold . $azul . "[+] Versão do Android: " . trim($resultadoVersaoAndroid) . "\n";
+                    echo $bold . $azul . "[+] Versión De Android: " . trim($resultadoVersaoAndroid) . "\n";
                 } else {
-                    echo $bold . $vermelho . "[!] Não foi possível obter a versão do Android.\n";
+                    echo $bold . $vermelho . "[!] No Fue Posible Obtener La Version De Android.\n";
                 }
 
 
@@ -323,7 +324,7 @@ escolheropcoes:
             }
             echo $bold . $branco . "[+] Caso haja acesso durante/após a partida, aplique o W.O!\n\n";
 
-            echo $bold . $azul . "[+] Obtendo os últimos textos copiados...\n";
+            echo $bold . $azul . "[+] Obteniendo Los Últimos Textos Copiados...\n";
 
             $comando = "adb logcat -d 2>/dev/null | grep 'hcallSetClipboardTextRpc' 2>/dev/null | sed -E 's/^([0-9]{2}-[0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2}).*hcallSetClipboardTextRpc\\(([^)]*)\\).*$/\\1 \\2 \\3/' 2>/dev/null | tail -n 10 2>/dev/null";
             $saida = shell_exec($comando);
@@ -1254,8 +1255,8 @@ if (strpos($resultadoStat, 'File:') !== false) {
              
                 
 
-                echo $bold . $branco . "\n\n\t Obrigado por compactuar por um cenário limpo de cheats.\n";
-                echo $bold . $branco . "\t                 Com carinho, Ditx...\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+                echo $bold . $branco . "\n\n\t Escaner Realizado Por un Escenario Limpio De Cheats.\n";
+                echo $bold . $branco . "\t                 Mod By Ditx...\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
         } elseif ($opcaoscanner == "2") {
             system("clear");
             keller_banner();
@@ -1296,9 +1297,9 @@ if (strpos($resultadoStat, 'File:') !== false) {
                 $resultadoVersaoAndroid = shell_exec($comandoVersaoAndroid);
 
                 if (!empty($resultadoVersaoAndroid)) {
-                    echo $bold . $azul . "[+] Versão do Android: " . trim($resultadoVersaoAndroid) . "\n";
+                    echo $bold . $azul . "[+] Versión De Android: " . trim($resultadoVersaoAndroid) . "\n";
                 } else {
-                    echo $bold . $vermelho . "[!] Não foi possível obter a versão do Android.\n";
+                    echo $bold . $vermelho . "[!] No Fue Posible Obtener La Version De Android.\n";
                 }
 
                 $comandoSu = 'su 2>&1';
@@ -1434,7 +1435,7 @@ if (strpos($resultadoStat, 'File:') !== false) {
             }
             echo $bold . $branco . "[+] Caso haja acesso durante/após a partida, aplique o W.O!\n\n";
 
-            echo $bold . $azul . "[+] Obtendo os últimos textos copiados...\n";
+            echo $bold . $azul . "[+] Obteniendo Los Últimos Textos Copiados...\n";
 
             $comando = "adb logcat -d 2>/dev/null | grep 'hcallSetClipboardTextRpc' 2>/dev/null | sed -E 's/^([0-9]{2}-[0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2}).*hcallSetClipboardTextRpc\\(([^)]*)\\).*$/\\1 \\2 \\3/' 2>/dev/null | tail -n 10 2>/dev/null";
             $saida = shell_exec($comando);
@@ -2273,17 +2274,17 @@ if (strpos($resultadoStat, 'File:') !== false) {
 
                 
                 
-                echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
+                 echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
 
-$rutasWhatsApp = [
-    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents',
-    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Private',
-    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Sent'
-];
+                $rutasWhatsApp = [
+                 '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents',
+                 '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Private',
+                 '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Sent'
+                 ];
 
-foreach ($rutasWhatsApp as $ruta) {
-    $comandoStat = 'adb shell stat ' . escapeshellarg($ruta) . ' 2>&1';
-    $resultadoStat = shell_exec($comandoStat);
+                foreach ($rutasWhatsApp as $ruta) {
+                $comandoStat = 'adb shell stat ' . escapeshellarg($ruta) . ' 2>&1';
+                   $resultadoStat = shell_exec($comandoStat);
 
     if (strpos($resultadoStat, 'File:') !== false) {
         preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
@@ -2363,10 +2364,10 @@ if (strpos($resultadoStat, 'File:') !== false) {
 
                 echo $bold . $branco . "[+] Após verificar in-game se o usuário está de Wallhack, olhando skins de armas e atrás da parede, verifique os horários do Shaders e OBB e compare também com o horário do replay, caso esteja muito diferente as datas, aplique o W.O!\n\n";
 
-                echo $bold . $branco . "\n\n\t Obrigado por compactuar por um cenário limpo de cheats.\n";
-                echo $bold . $branco . "\t                 Com carinho, Ditx...\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+                echo $bold . $branco . "\n\n\t Escaner Realizado Por un Escenario Limpio De Cheats.\n";
+                echo $bold . $branco . "\t                 Mod By Ditx...\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
         } elseif ($opcaoscanner == 's' || $opcaoscanner == 'S') {
-            echo "\n\n\t Obrigado por compactuar por um cenário limpo de cheats.\n\n";
+            echo "\n\n\t Escaner Realizado Por un Escenario Limpio De Cheats\n\n";
             die();
         }
       }
