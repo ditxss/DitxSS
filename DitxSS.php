@@ -23,20 +23,22 @@ $ciano = "\e[36m";
 $bold   = "\e[1m";
 function keller_banner(){
   echo "\e[37m
-           KellerSS Android\e[36m Fucking Cheaters\e[91m\e[37m discord.gg/allianceoficial\e[91m
+           DitxSS Android\e[36m Fucking Cheaters\e[91m\e[37m discord.gg/spacex\e[91m
             
-                            )       (     (          (     
-                        ( /(       )\ )  )\ )       )\ )  
-                        )\()) (   (()/( (()/(  (   (()/(  
-                        |((_)\  )\   /(_)) /(_)) )\   /(_)) 
-                        |_ ((_)((_) (_))  (_))  ((_) (_))   
-                        | |/ / | __|| |   | |   | __|| _ \  
-                        ' <  | _| | |__ | |__ | _| |   /  
-                        _|\_\ |___||____||____||___||_|_\  
+                        ______  ____ __  __
+                        |  _ \(_)|_  _\ \/ /      
+                        | | | | |  | |  \  /       
+                        | |_| | |  | |  /  \   
+                        |____/|_|  |_| /_/\_\    
+                        ____   ____               
+                       / ___| / ___|              
+                       \___ \ \___ \              
+                       ___) | ___) |              
+                       |____/ |____/    
+                        
 
 
-
-                    \e[36m{C} Coded By - KellerSS | Credits for Sheik                                   
+                    \e[36m{C} Mod By - DitxSS | Credits for Sheik                                   
 \e[32m
   \n";
 }
@@ -69,7 +71,7 @@ menuscanner:
 
     echo $bold . $azul . "
       +--------------------------------------------------------------+
-      +                       KellerSS Menu                          +
+      +                       DitxSS Menu                          +
       +--------------------------------------------------------------+
 
       \n\n";
@@ -1156,19 +1158,10 @@ escolheropcoes:
                 } else {
                     echo $vermelho . "[*] OBB deletada e/ou inexistente!\n";
                 }
-
-
-                
-
-
-            
-
-                echo $bold . $branco . "[+] Após verificar in-game se o usuário está de Wallhack, olhando skins de armas e atrás da parede, verifique os horários do Shaders e OBB e compare também com o horário do replay, caso esteja muito diferente as datas, aplique o W.O!\n\n";
                 
                 
                 
-
-             echo $bold . $azul . "[+] Verificando modificações em pastas adicionais...\n";
+                echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
 
 $rutasWhatsApp = [
     '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents',
@@ -1238,17 +1231,31 @@ if (strpos($resultadoStat, 'File:') !== false) {
         $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
 
         if ($dataModifyFormatada !== $dataChangeFormatada) {
-            echo $bold . $vermelho . "[!] Possibilidad eliminación de app muy alta aplicar WO en caso de sospechas\n";
+            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas\n";
             echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
             echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
         }
     }
 }
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                echo $bold . $branco . "[+] Após verificar in-game se o usuário está de Wallhack, olhando skins de armas e atrás da parede, verifique os horários do Shaders e OBB e compare também com o horário do replay, caso esteja muito diferente as datas, aplique o W.O!\n\n";
+                
+                
+                
 
+             
                 
 
                 echo $bold . $branco . "\n\n\t Obrigado por compactuar por um cenário limpo de cheats.\n";
-                echo $bold . $branco . "\t                 Com carinho, Keller...\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+                echo $bold . $branco . "\t                 Com carinho, Ditx...\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
         } elseif ($opcaoscanner == "2") {
             system("clear");
             keller_banner();
@@ -2265,6 +2272,91 @@ if (strpos($resultadoStat, 'File:') !== false) {
 
 
                 
+                
+                echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
+
+$rutasWhatsApp = [
+    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents',
+    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Private',
+    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Sent'
+];
+
+foreach ($rutasWhatsApp as $ruta) {
+    $comandoStat = 'adb shell stat ' . escapeshellarg($ruta) . ' 2>&1';
+    $resultadoStat = shell_exec($comandoStat);
+
+    if (strpos($resultadoStat, 'File:') !== false) {
+        preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
+        preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
+
+        if ($matchModify && $matchChange) {
+            $dataModify = trim($matchModify[1]);
+            $dataChange = trim($matchChange[1]);
+
+            $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
+            $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
+
+            if ($dataModifyFormatada !== $dataChangeFormatada) {
+                echo $bold . $vermelho . "[!] WhatsApp Documents Modificado\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $ruta . "\n";
+                echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+            }
+        }
+    }
+}
+
+$rutaDownload = '/storage/emulated/0/Download';
+$comandoStat = 'adb shell stat ' . escapeshellarg($rutaDownload) . ' 2>&1';
+$resultadoStat = shell_exec($comandoStat);
+
+if (strpos($resultadoStat, 'File:') !== false) {
+    preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
+    preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
+
+    if ($matchModify && $matchChange) {
+        $dataModify = trim($matchModify[1]);
+        $dataChange = trim($matchChange[1]);
+
+        $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
+        $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
+
+        if ($dataModifyFormatada !== $dataChangeFormatada) {
+            echo $bold . $vermelho . "[!] Download Modificado\n";
+            echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+        }
+    }
+}
+
+$rutaDataApp = '/data/app';
+$comandoStat = 'adb shell stat ' . escapeshellarg($rutaDataApp) . ' 2>&1';
+$resultadoStat = shell_exec($comandoStat);
+
+if (strpos($resultadoStat, 'File:') !== false) {
+    preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
+    preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
+
+    if ($matchModify && $matchChange) {
+        $dataModify = trim($matchModify[1]);
+        $dataChange = trim($matchChange[1]);
+
+        $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
+        $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
+
+        if ($dataModifyFormatada !== $dataChangeFormatada) {
+            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas\n";
+            echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+            echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+        }
+    }
+}
+                
+                
+                
+                
+                
+                
+                
+                
 
 
             
@@ -2272,7 +2364,7 @@ if (strpos($resultadoStat, 'File:') !== false) {
                 echo $bold . $branco . "[+] Após verificar in-game se o usuário está de Wallhack, olhando skins de armas e atrás da parede, verifique os horários do Shaders e OBB e compare também com o horário do replay, caso esteja muito diferente as datas, aplique o W.O!\n\n";
 
                 echo $bold . $branco . "\n\n\t Obrigado por compactuar por um cenário limpo de cheats.\n";
-                echo $bold . $branco . "\t                 Com carinho, Keller...\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+                echo $bold . $branco . "\t                 Com carinho, Ditx...\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
         } elseif ($opcaoscanner == 's' || $opcaoscanner == 'S') {
             echo "\n\n\t Obrigado por compactuar por um cenário limpo de cheats.\n\n";
             die();
