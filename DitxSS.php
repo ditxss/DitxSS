@@ -25,7 +25,7 @@ function keller_banner(){
   echo "\e[37m
            DitxSS Android\e[36m Fucking Cheaters\e[91m\e[37m discord.gg/spacex\e[91m
             
-                        ______  ____ __  __
+                        ______   ____ __  __
                         |  _ \(_)|_  _\ \/ /      
                         | | | | |  | |  \  /       
                         | |_| | |  | |  /  \   
@@ -2270,41 +2270,40 @@ if (strpos($resultadoStat, 'File:') !== false) {
                 } else {
                     echo $vermelho . "[*] OBB deletada e/ou inexistente!\n";
                 }
-
-
                 
+                                
                 
                  echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
 
-$rutasWhatsApp = [
-    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents',
-    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Private',
-    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Sent'
-];
+                $rutasWhatsApp = [
+                 '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents',
+                 '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Private',
+                 '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Sent'
+                 ]       ;
 
-foreach ($rutasWhatsApp as $ruta) {
-    $comandoStat = 'adb shell stat ' . escapeshellarg($ruta) . ' 2>&1';
-    $resultadoStat = shell_exec($comandoStat);
+                    foreach ($rutasWhatsApp as $ruta) {
+                        $comandoStat = 'adb shell stat ' . escapeshellarg($ruta) . ' 2>&1';
+                        $resultadoStat = shell_exec($comandoStat);
 
-    if (strpos($resultadoStat, 'File:') !== false) {
-        preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
-        preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
+                       if (strpos($resultadoStat, 'File:') !== false) {
+                        preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
+                        preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
 
-        if ($matchModify && $matchChange) {
-            $dataModify = trim($matchModify[1]);
-            $dataChange = trim($matchChange[1]);
+                       if ($matchModify && $matchChange) {
+                        $dataModify = trim($matchModify[1]);
+                        $dataChange = trim($matchChange[1]);
 
-            $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
-            $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
+                        $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
+                        $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
 
-            if ($dataModifyFormatada !== $dataChangeFormatada) {
-                echo $bold . $vermelho . "[!] WhatsApp Documents Modificado\n";
-                echo $bold . $amarelo . "[i] Ruta: " . $ruta . "\n";
-                echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+                      if ($dataModifyFormatada !== $dataChangeFormatada) {
+                     echo $bold . $vermelho . "[!] WhatsApp Documents Modificado\n";
+                     echo $bold . $amarelo . "[i] Ruta: " . $ruta . "\n";
+                     echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+                    }
+                    }
+                 }
             }
-        }
-    }
-}
 
 $rutaDownload = '/storage/emulated/0/Download';
 $comandoStat = 'adb shell stat ' . escapeshellarg($rutaDownload) . ' 2>&1';
@@ -2350,6 +2349,17 @@ if (strpos($resultadoStat, 'File:') !== false) {
         }
     }
 }
+                
+                
+                
+                
+                
+                
+                
+                
+                
+
+
                 
                 
                 
