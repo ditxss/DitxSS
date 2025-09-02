@@ -2445,7 +2445,7 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
         // Verificar si hubo modificación (Modify ≠ Change)
         $modificacionDetectada = false;
         if ($dataModifyFormatada !== $dataChangeFormatada) {
-            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas\n";
+            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas, tener en cuenta la hora de la instalación de la SS\n";
             echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
             echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
             $modificacionDetectada = true;
@@ -2456,7 +2456,7 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
         $tiempoLimite = $horasLimite * 3600; // 4 horas en segundos
         
         if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado) {
-            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas\n";
+            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas, tener en cuenta la hora de la instalación de la SS\n";
             echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
             echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n\n";
             $modificacionDetectada = true;
@@ -2471,8 +2471,64 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
 } else {
     echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . $rutaDataApp . "\n\n";
 }
+
+
+
+
+
+
                 
+echo $bold . $azul . "[+] Verificando conexiones USB recientes (últimas 3 horas)...\n";
+
+// Comando para buscar eventos de conexión USB en los logs
+$comandoUSB = 'adb logcat -d -t "3 hours ago" | grep -i "usb" | grep -i "connected\|config\|charge" | head -n 10';
+$resultadoUSB = shell_exec($comandoUSB);
+
+$conexionDetectada = false;
+
+if (!empty(trim($resultadoUSB))) {
+    $lineas = explode("\n", trim($resultadoUSB));
+    
+    foreach ($lineas as $linea) {
+        if (!empty(trim($linea))) {
+            // Buscar patrones que indiquen conexión a PC
+            if (strpos(strtolower($linea), 'host') !== false || 
+                strpos(strtolower($linea), 'config') !== false ||
+                strpos(strtolower($linea), 'charge') !== false) {
                 
+                echo $bold . $vermelho . "[!] Dispositivo fue conectado a PC, aplique WO\n";
+                echo $bold . $amarelo . "[i] Evento detectado: " . trim($linea) . "\n\n";
+                $conexionDetectada = true;
+                break;
+            }
+        }
+    }
+}
+
+// Verificar también el estado actual de carga
+$comandoCarga = 'adb shell dumpsys battery | grep -i "usb"';
+$resultadoCarga = shell_exec($comandoCarga);
+
+if (!empty(trim($resultadoCarga)) && strpos(strtolower($resultadoCarga), 'true') !== false) {
+    echo $bold . $vermelho . "[!] Dispositivo actualmente conectado a USB (posible PC)\n";
+    $conexionDetectada = true;
+}
+
+if (!$conexionDetectada) {
+    echo $bold . $fverde . "[i] No se ha encontrado ninguna conexión USB sospechosa\n\n";
+}
+
+// Verificar historial de carga
+echo $bold . $azul . "[+] Verificando historial de carga...\n";
+$comandoHistorialCarga = 'adb logcat -d -t "3 hours ago" | grep -i "battery" | grep -i "level\|charge\|power" | head -n 5';
+$resultadoHistorialCarga = shell_exec($comandoHistorialCarga);
+
+if (!empty(trim($resultadoHistorialCarga))) {
+    echo $bold . $amarelo . "[i] Eventos de carga recientes:\n";
+    echo $resultadoHistorialCarga . "\n";
+} else {
+    echo $bold . $fverde . "[i] No se encontraron eventos de carga recientes\n\n";
+}
                 
                 
 
