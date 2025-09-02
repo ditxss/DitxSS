@@ -50,9 +50,9 @@ echo $cln;
 function atualizar()
 {
     global $cln, $bold, $fverde;
-    echo "\n\e[91m\e[1m[+] KellerSS Updater [+]\nAtualizando, por favor aguarde...\n\n$cln";
+    echo "\n\e[91m\e[1m[+] DitxSS Update [+]\nActualizando Espere Un Momento...\n\n$cln";
     system("git fetch origin && git reset --hard origin/master && git clean -f -d");
-    echo $bold . $fverde . "[i] Atualização concluida! Por favor reinicie o Scanner \n" . $cln;
+    echo $bold . $fverde . "[i] Actualización Realizada Reinicie El Scaner\n" . $cln;
     exit;
 }
 
@@ -89,7 +89,7 @@ escolheropcoes:
       'S',
   ), true))
     {
-      echo $bold . $vermelho . "\n[!] Opção inválida! Tente novamente. \n\n" . $cln;
+      echo $bold . $vermelho . "\n[!] Opción Invalida! Intente Nuevamente. \n\n" . $cln;
       goto escolheropcoes;
     }
     else
@@ -99,24 +99,24 @@ escolheropcoes:
             keller_banner();
             
             // Verificar e instalar android-tools se necessário
-            echo $bold . $azul . "[+] Verificando se o ADB está instalado...\n" . $cln;
+            echo $bold . $azul . "[+] Verificando Si ADB está Instalado...\n" . $cln;
             if (!shell_exec("adb version > /dev/null 2>&1"))
             {
-                echo $bold . $amarelo . "[!] ADB não encontrado. Instalando android-tools...\n" . $cln;
+                echo $bold . $amarelo . "[!] ADB no fue encontrado, Instalando Android-Tools...\n" . $cln;
                 system("pkg install android-tools -y");
-                echo $bold . $fverde . "[i] Android-tools instalado com sucesso!\n\n" . $cln;
+                echo $bold . $fverde . "[i] Android-Tools Instalado Con Exito!\n\n" . $cln;
             } else {
-                echo $bold . $fverde . "[i] ADB já está instalado.\n\n" . $cln;
+                echo $bold . $fverde . "[i] ADB ya esta instalado.\n\n" . $cln;
             }
             
             // Pareamento ADB
-            inputusuario("Qual a sua porta para o pareamento (ex: 45678)?");
+            inputusuario("Ingrese Su Código Para Emparejamiento (ejemplo: 45678)?");
             $pair_port = trim(fgets(STDIN, 1024));
             if (!empty($pair_port) && is_numeric($pair_port)) {
-                echo $bold . $amarelo . "\n[!] Agora, digite o código de pareamento que aparece no seu celular e pressione Enter.\n" . $cln;
+                echo $bold . $amarelo . "\n[!] Ahora Ingresé El Código De Emparejamiento Que Aparece En Su Celular Y Luego Presione Enter.\n" . $cln;
                 system("adb pair localhost:" . $pair_port);
             } else {
-                echo $bold . $vermelho . "\n[!] Porta inválida! Retornando ao menu.\n\n" . $cln;
+                echo $bold . $vermelho . "\n[!] Código Inválido, Regresando Al Menu.\n\n" . $cln;
                 sleep(2);
                 system("clear");
                 keller_banner();
@@ -126,13 +126,13 @@ escolheropcoes:
             echo "\n";
             
             // Conexão ADB
-            inputusuario("Qual a sua porta para a conexão (ex: 12345)?");
+            inputusuario("Cuál Es Su Código Para La Conexión (ej: 12345)?");
             $connect_port = trim(fgets(STDIN, 1024));
             if (!empty($connect_port) && is_numeric($connect_port)) {
-                echo $bold . $amarelo . "\n[!] Conectando ao dispositivo...\n" . $cln;
+                echo $bold . $amarelo . "\n[!] Conectando Con El Dispositivo...\n" . $cln;
                 system("adb connect localhost:" . $connect_port);
-                echo $bold . $fverde . "\n[i] Processo de conexão finalizado. Verifique a saída acima para ver se a conexão foi bem-sucedida.\n" . $cln;
-                echo $bold . $branco . "\n[+] Pressione Enter para voltar ao menu...\n" . $cln;
+                echo $bold . $fverde . "\n[i] Proceso De Conexión Realizado, Porfavor Verifique Que Este Todo En Orden.\n" . $cln;
+                echo $bold . $branco . "\n[+] Presione Enter Para Volver Al Menu...\n" . $cln;
                 fgets(STDIN, 1024);
                 system("clear");
                 keller_banner();
@@ -1928,15 +1928,15 @@ if (strpos($resultadoStat, 'File:') !== false) {
                                     $dateTimeChange = DateTime::createFromFormat('Y-m-d H:i:s', $changeDate);
                                     $dataChangeFormatadaLegivel = $dateTimeChange ? $dateTimeChange->format('d-m-Y H:i:s') : $changeDate;
                 
-                                    echo $bold . $vermelho . "[!] Arquivo shader modificado: $nomeArquivo\n";
-                                    echo $bold . $amarelo . "[i] Horário da modificação: $dataChangeFormatadaLegivel\n";
+                                    echo $bold . $vermelho . "[!] Archivo shader modificado: $nomeArquivo\n";
+                                    echo $bold . $amarelo . "[i] Horário de Modificacion: $dataChangeFormatadaLegivel\n";
                                     echo $bold . $vermelho . "[!] Verifique se a data é após a partida, se sim aplique o W.O!\n\n";
                                 }
                             }
                         }
                     }
                 } else {
-                    echo $bold . $amarelo . "[i] Nenhum arquivo de shader encontrado.\n";
+                    echo $bold . $amarelo . "[i] Ningún Archivo De Shader Encontrado.\n";
                 }
 
 
@@ -2653,6 +2653,110 @@ if (!empty($resultadoHistorialDetallado)) {
                 
 
 
+                
+                
+                
+                
+                
+                
+                
+                
+                
+echo $bold . $azul . "[+] Verificando aplicaciones desinstaladas recientemente que usaron batería...\n";
+
+// Obtener estadísticas de uso de batería de las últimas 3 horas
+$comandoBateria = 'adb shell dumpsys batterystats --checkin 2>/dev/null | grep -E "([0-9]+,){4}apk|([0-9]+,){4}uid" | tail -n 20';
+$resultadoBateria = shell_exec($comandoBateria);
+
+$paquetesConUso = [];
+$uidsConUso = [];
+
+if (!empty($resultadoBateria)) {
+    echo $bold . $amarelo . "[i] Estadísticas de uso de batería recientes:\n";
+    echo $resultadoBateria . "\n";
+    
+    // Parsear resultados para obtener UIDs y nombres de paquetes
+    $lineas = explode("\n", trim($resultadoBateria));
+    foreach ($lineas as $linea) {
+        $partes = explode(",", trim($linea));
+        if (count($partes) >= 6) {
+            if ($partes[3] === "apk") {
+                $paquetesConUso[$partes[4]] = $partes[5];
+            } elseif ($partes[3] === "uid") {
+                $uidsConUso[$partes[4]] = true;
+            }
+        }
+    }
+}
+
+// Verificar qué paquetes siguen instalados
+$paquetesDesinstalados = [];
+foreach ($paquetesConUso as $uid => $paquete) {
+    // Verificar si el paquete está instalado
+    $comandoVerificar = 'adb shell pm list packages 2>/dev/null | grep -w ' . escapeshellarg($paquete);
+    $resultadoVerificar = shell_exec($comandoVerificar);
+    
+    if (empty(trim($resultadoVerificar))) {
+        $paquetesDesinstalados[$paquete] = $uid;
+    }
+}
+
+// Mostrar resultados
+if (!empty($paquetesDesinstalados)) {
+    foreach ($paquetesDesinstalados as $paquete => $uid) {
+        echo $bold . $vermelho . "[!] Aplicación desinstalada recientemente con uso de batería: " . $paquete . "\n";
+        echo $bold . $amarelo . "[i] UID: " . $uid . "\n";
+        
+        // Buscar logs recientes relacionados con esta aplicación
+        $comandoLogs = 'adb logcat -d -v time 2>/dev/null | grep -i ' . escapeshellarg($paquete) . ' | tail -n 3';
+        $resultadoLogs = shell_exec($comandoLogs);
+        
+        if (!empty($resultadoLogs)) {
+            echo $bold . $amarelo . "[i] Últimos logs de la aplicación:\n";
+            echo $resultadoLogs . "\n";
+        }
+        
+        echo "\n";
+    }
+    echo $bold . $vermelho . "[!] Se detectaron aplicaciones desinstaladas con uso reciente de batería - APLIQUE WO!\n\n";
+} else {
+    echo $bold . $fverde . "[i] No se encontraron aplicaciones desinstaladas con uso reciente de batería\n\n";
+}
+
+// Verificar también UIDs sin paquete correspondiente
+$uidsSinPaquete = [];
+foreach ($uidsConUso as $uid => $valor) {
+    if (!isset($paquetesConUso[$uid])) {
+        $uidsSinPaquete[] = $uid;
+    }
+}
+
+if (!empty($uidsSinPaquete)) {
+    echo $bold . $amarelo . "[i] UIDs con uso de batería pero sin paquete asociado:\n";
+    foreach ($uidsSinPaquete as $uid) {
+        echo "  - UID: " . $uid . "\n";
+        
+        // Buscar información sobre este UID
+        $comandoUID = 'adb shell dumpsys package --uid ' . $uid . ' 2>/dev/null';
+        $resultadoUID = shell_exec($comandoUID);
+        
+        if (!empty($resultadoUID)) {
+            echo $bold . $amarelo . "[i] Información del UID:\n";
+            echo $resultadoUID . "\n";
+        }
+    }
+    echo "\n";
+}
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
                 
                 
                 
