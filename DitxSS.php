@@ -25,11 +25,11 @@ function keller_banner(){
   echo "\e[37m
            DitxSS Android\e[36m Fucking Cheaters\e[91m\e[37m discord.gg/spacex\e[91m
             
-                        ______   ____ __  __
+                        ______  _____  __  __
                         |  _ \(_)|_  _| \ \/ /     
-                        | | | | |  | |  \  /       
-                        | |_| | |  | |  /  \   
-                        |____/|_|  |_| /_/\_\    
+                        | | | | |  | |   \  /       
+                        | |_| | |  | |   /  \   
+                        |____/|_|  |_|  /_/\_\    
                         
                              ____   ____        
                             / ___| / ___|         
@@ -2277,21 +2277,24 @@ if (strpos($resultadoStat, 'File:') !== false) {
                 
                  echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
 
-// Verificar rutas de WhatsApp por separado
-$rutasWhatsApp1 = '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents';
-$rutasWhatsApp2 = '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Private';
-$rutasWhatsApp3 = '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Sent';
+// Obtener la hora actual para comparaciones
+$currentTime = time();
 
-$rutasParaVerificar = [$rutasWhatsApp1, $rutasWhatsApp2, $rutasWhatsApp3];
+// Verificar rutas de WhatsApp por separado (con espacios escapados correctamente)
+$rutasWhatsApp = [
+    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp\ Documents',
+    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp\ Documents/Private',
+    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp\ Documents/Sent'
+];
 
-foreach ($rutasParaVerificar as $ruta) {
-    $comandoStat = 'adb shell stat ' . escapeshellarg($ruta) . ' 2>&1';
+foreach ($rutasWhatsApp as $ruta) {
+    // Usar comillas adecuadas para manejar espacios en las rutas
+    $comandoStat = 'adb shell "stat ' . $ruta . ' 2>/dev/null"';
     $resultadoStat = shell_exec($comandoStat);
     
-    // Depuración: mostrar resultado del comando
     echo $bold . $cinza . "[DEBUG] Resultado para $ruta: " . trim($resultadoStat) . "\n" . $cln;
 
-    if (strpos($resultadoStat, 'File:') !== false) {
+    if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
         preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
         preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
 
@@ -2299,33 +2302,62 @@ foreach ($rutasParaVerificar as $ruta) {
             $dataModify = trim($matchModify[1]);
             $dataChange = trim($matchChange[1]);
 
+            // Verificar milisegundos .000 (Bypass Detectado)
+            $bypassDetectado = false;
+            if (preg_match('/\.0+$/', $dataModify) || preg_match('/\.0+$/', $dataChange)) {
+                echo $bold . $vermelho . "[!] Bypass Detectado: Timestamps con .000\n";
+                echo $bold . $amarelo . "[i] Ruta: " . str_replace('\\', '', $ruta) . "\n";
+                echo $bold . $amarelo . "[i] Modify: " . $dataModify . "\n";
+                echo $bold . $amarelo . "[i] Change: " . $dataChange . "\n\n";
+                $bypassDetectado = true;
+            }
+
             $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
             $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
-
+            
+            // Convertir a timestamp para verificación de tiempo
+            $modifyTimestamp = strtotime($dataModifyFormatada);
+            $changeTimestamp = strtotime($dataChangeFormatada);
+            
+            // Verificar si hubo modificación (Modify ≠ Change)
+            $modificacionDetectada = false;
             if ($dataModifyFormatada !== $dataChangeFormatada) {
                 echo $bold . $vermelho . "[!] WhatsApp Documents Modificado\n";
-                echo $bold . $amarelo . "[i] Ruta: " . $ruta . "\n";
+                echo $bold . $amarelo . "[i] Ruta: " . str_replace('\\', '', $ruta) . "\n";
                 echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
-            } else {
-                echo $bold . $fverde . "[i] No se detectaron modificaciones en: " . $ruta . "\n\n";
+                $modificacionDetectada = true;
+            }
+            
+            // Verificar si la modificación fue reciente (últimas 4 horas)
+            $horasLimite = 4;
+            $tiempoLimite = $horasLimite * 3600; // 4 horas en segundos
+            
+            if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado) {
+                echo $bold . $vermelho . "[!] WhatsApp Documents Modificado Recientemente (últimas $horasLimite horas)\n";
+                echo $bold . $amarelo . "[i] Ruta: " . str_replace('\\', '', $ruta) . "\n";
+                echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n\n";
+                $modificacionDetectada = true;
+            }
+            
+            if (!$modificacionDetectada && !$bypassDetectado) {
+                echo $bold . $fverde . "[i] No se detectaron modificaciones recientes en: " . str_replace('\\', '', $ruta) . "\n\n";
             }
         } else {
-            echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . $ruta . "\n\n";
+            echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . str_replace('\\', '', $ruta) . "\n\n";
         }
     } else {
-        echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . $ruta . "\n\n";
+        echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . str_replace('\\', '', $ruta) . "\n\n";
     }
 }
 
-// Verificar ruta Download
+// Verificar ruta Download (con espacios escapados)
 $rutaDownload = '/storage/emulated/0/Download';
-$comandoStat = 'adb shell stat ' . escapeshellarg($rutaDownload) . ' 2>&1';
+$comandoStat = 'adb shell "stat ' . $rutaDownload . ' 2>/dev/null"';
 $resultadoStat = shell_exec($comandoStat);
 
-// Depuración: mostrar resultado del comando
 echo $bold . $cinza . "[DEBUG] Resultado para $rutaDownload: " . trim($resultadoStat) . "\n" . $cln;
 
-if (strpos($resultadoStat, 'File:') !== false) {
+if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
     preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
     preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
 
@@ -2333,14 +2365,43 @@ if (strpos($resultadoStat, 'File:') !== false) {
         $dataModify = trim($matchModify[1]);
         $dataChange = trim($matchChange[1]);
 
+        // Verificar milisegundos .000 (Bypass Detectado)
+        $bypassDetectado = false;
+        if (preg_match('/\.0+$/', $dataModify) || preg_match('/\.0+$/', $dataChange)) {
+            echo $bold . $vermelho . "[!] Bypass Detectado: Timestamps con .000\n";
+            echo $bold . $amarelo . "[i] Ruta: " . $rutaDownload . "\n";
+            echo $bold . $amarelo . "[i] Modify: " . $dataModify . "\n";
+            echo $bold . $amarelo . "[i] Change: " . $dataChange . "\n\n";
+            $bypassDetectado = true;
+        }
+
         $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
         $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
-
+        
+        // Convertir a timestamp para verificación de tiempo
+        $modifyTimestamp = strtotime($dataModifyFormatada);
+        $changeTimestamp = strtotime($dataChangeFormatada);
+        
+        // Verificar si hubo modificación (Modify ≠ Change)
+        $modificacionDetectada = false;
         if ($dataModifyFormatada !== $dataChangeFormatada) {
             echo $bold . $vermelho . "[!] Download Modificado\n";
             echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
-        } else {
-            echo $bold . $fverde . "[i] No se detectaron modificaciones en: " . $rutaDownload . "\n\n";
+            $modificacionDetectada = true;
+        }
+        
+        // Verificar si la modificación fue reciente (últimas 4 horas)
+        $horasLimite = 4;
+        $tiempoLimite = $horasLimite * 3600; // 4 horas en segundos
+        
+        if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado) {
+            echo $bold . $vermelho . "[!] Download Modificado Recientemente (últimas $horasLimite horas)\n";
+            echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n\n";
+            $modificacionDetectada = true;
+        }
+        
+        if (!$modificacionDetectada && !$bypassDetectado) {
+            echo $bold . $fverde . "[i] No se detectaron modificaciones recientes en: " . $rutaDownload . "\n\n";
         }
     } else {
         echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . $rutaDownload . "\n\n";
@@ -2351,13 +2412,12 @@ if (strpos($resultadoStat, 'File:') !== false) {
 
 // Verificar ruta /data/app
 $rutaDataApp = '/data/app';
-$comandoStat = 'adb shell stat ' . escapeshellarg($rutaDataApp) . ' 2>&1';
+$comandoStat = 'adb shell "stat ' . $rutaDataApp . ' 2>/dev/null"';
 $resultadoStat = shell_exec($comandoStat);
 
-// Depuración: mostrar resultado del comando
 echo $bold . $cinza . "[DEBUG] Resultado para $rutaDataApp: " . trim($resultadoStat) . "\n" . $cln;
 
-if (strpos($resultadoStat, 'File:') !== false) {
+if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
     preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
     preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
 
@@ -2365,15 +2425,45 @@ if (strpos($resultadoStat, 'File:') !== false) {
         $dataModify = trim($matchModify[1]);
         $dataChange = trim($matchChange[1]);
 
+        // Verificar milisegundos .000 (Bypass Detectado)
+        $bypassDetectado = false;
+        if (preg_match('/\.0+$/', $dataModify) || preg_match('/\.0+$/', $dataChange)) {
+            echo $bold . $vermelho . "[!] Bypass Detectado: Timestamps con .000\n";
+            echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+            echo $bold . $amarelo . "[i] Modify: " . $dataModify . "\n";
+            echo $bold . $amarelo . "[i] Change: " . $dataChange . "\n\n";
+            $bypassDetectado = true;
+        }
+
         $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
         $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
-
+        
+        // Convertir a timestamp para verificación de tiempo
+        $modifyTimestamp = strtotime($dataModifyFormatada);
+        $changeTimestamp = strtotime($dataChangeFormatada);
+        
+        // Verificar si hubo modificación (Modify ≠ Change)
+        $modificacionDetectada = false;
         if ($dataModifyFormatada !== $dataChangeFormatada) {
             echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas\n";
             echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
             echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
-        } else {
-            echo $bold . $fverde . "[i] No se detectaron modificaciones en: " . $rutaDataApp . "\n\n";
+            $modificacionDetectada = true;
+        }
+        
+        // Verificar si la modificación fue reciente (últimas 4 horas)
+        $horasLimite = 4;
+        $tiempoLimite = $horasLimite * 3600; // 4 horas en segundos
+        
+        if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado) {
+            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas\n";
+            echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+            echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n\n";
+            $modificacionDetectada = true;
+        }
+        
+        if (!$modificacionDetectada && !$bypassDetectado) {
+            echo $bold . $fverde . "[i] No se detectaron modificaciones recientes en: " . $rutaDataApp . "\n\n";
         }
     } else {
         echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . $rutaDataApp . "\n\n";
@@ -2381,11 +2471,6 @@ if (strpos($resultadoStat, 'File:') !== false) {
 } else {
     echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . $rutaDataApp . "\n\n";
 }
-                
-                
-                
-                
-                
                 
                 
                 
