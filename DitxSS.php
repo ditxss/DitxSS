@@ -25,7 +25,7 @@ function keller_banner(){
   echo "\e[37m
            DitxSS Android\e[36m Fucking Cheaters\e[91m\e[37m discord.gg/spacex\e[91m
             
-                        ______  _____  __  __
+                        ______   _____  __  __
                         |  _ \(_)|_  _| \ \/ /     
                         | | | | |  | |   \  /       
                         | |_| | |  | |   /  \   
@@ -2478,56 +2478,89 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
 
 
                 
-echo $bold . $azul . "[+] Verificando conexiones USB recientes (últimas 3 horas)...\n";
+echo $bold . $azul . "[+] Verificando conexiones USB recientes...\n";
 
-// Comando para buscar eventos de conexión USB en los logs
-$comandoUSB = 'adb logcat -d -t "3 hours ago" | grep -i "usb" | grep -i "connected\|config\|charge" | head -n 10';
-$resultadoUSB = shell_exec($comandoUSB);
+// Método 1: Verificar logs del kernel para eventos USB (usando dmesg)
+$conexionPCDetectada = false;
+$comandoDmesg = 'adb shell "dmesg -T 2>/dev/null | tail -n 50"';
+$resultadoDmesg = shell_exec($comandoDmesg);
 
-$conexionDetectada = false;
-
-if (!empty(trim($resultadoUSB))) {
-    $lineas = explode("\n", trim($resultadoUSB));
+if (!empty($resultadoDmesg)) {
+    $lineas = explode("\n", trim($resultadoDmesg));
     
     foreach ($lineas as $linea) {
-        if (!empty(trim($linea))) {
-            // Buscar patrones que indiquen conexión a PC
-            if (strpos(strtolower($linea), 'host') !== false || 
-                strpos(strtolower($linea), 'config') !== false ||
-                strpos(strtolower($linea), 'charge') !== false) {
-                
-                echo $bold . $vermelho . "[!] Dispositivo fue conectado a PC, aplique WO\n";
-                echo $bold . $amarelo . "[i] Evento detectado: " . trim($linea) . "\n\n";
-                $conexionDetectada = true;
-                break;
+        if (!empty(trim($linea)) && 
+            (strpos(strtolower($linea), 'usb') !== false || 
+             strpos(strtolower($linea), 'connected') !== false)) {
+            
+            // Verificar si la línea es reciente (contiene una fecha/hora reciente)
+            if (preg_match('/\[([A-Za-z]{3} [A-Za-z]{3} [0-9]{1,2} [0-9]{2}:[0-9]{2}:[0-9]{2} [0-9]{4})\]/', $linea, $matchTime)) {
+                $logTime = strtotime($matchTime[1]);
+                if ($logTime && (time() - $logTime) < 10800) { // 3 horas en segundos
+                    echo $bold . $vermelho . "[!] Dispositivo fue conectado a PC (detectado en logs del kernel)\n";
+                    echo $bold . $amarelo . "[i] Evento: " . trim($linea) . "\n\n";
+                    $conexionPCDetectada = true;
+                }
             }
         }
     }
 }
 
-// Verificar también el estado actual de carga
-$comandoCarga = 'adb shell dumpsys battery | grep -i "usb"';
-$resultadoCarga = shell_exec($comandoCarga);
+// Método 2: Verificar estadísticas de carga actual
+$comandoCargaActual = 'adb shell dumpsys battery 2>/dev/null';
+$resultadoCargaActual = shell_exec($comandoCargaActual);
 
-if (!empty(trim($resultadoCarga)) && strpos(strtolower($resultadoCarga), 'true') !== false) {
-    echo $bold . $vermelho . "[!] Dispositivo actualmente conectado a USB (posible PC)\n";
-    $conexionDetectada = true;
+if (!empty($resultadoCargaActual)) {
+    if (strpos(strtolower($resultadoCargaActual), 'usb') !== false) {
+        echo $bold . $vermelho . "[!] Dispositivo actualmente conectado via USB (posible PC)\n";
+        $conexionPCDetectada = true;
+    }
+    
+    // Mostrar información de la batería
+    echo $bold . $amarelo . "[i] Estado actual de la batería:\n";
+    echo $resultadoCargaActual . "\n";
 }
 
-if (!$conexionDetectada) {
-    echo $bold . $fverde . "[i] No se ha encontrado ninguna conexión USB sospechosa\n\n";
+// Método 3: Verificar archivos del sistema para detectar conexiones USB
+$comandoUSBFiles = 'adb shell "ls -la /sys/class/power_supply/usb/ 2>/dev/null; ls -la /sys/class/power_supply/*/usb_* 2>/dev/null"';
+$resultadoUSBFiles = shell_exec($comandoUSBFiles);
+
+if (!empty($resultadoUSBFiles)) {
+    echo $bold . $amarelo . "[i] Archivos de control USB encontrados:\n";
+    echo $resultadoUSBFiles . "\n";
 }
 
-// Verificar historial de carga
-echo $bold . $azul . "[+] Verificando historial de carga...\n";
-$comandoHistorialCarga = 'adb logcat -d -t "3 hours ago" | grep -i "battery" | grep -i "level\|charge\|power" | head -n 5';
-$resultadoHistorialCarga = shell_exec($comandoHistorialCarga);
+// Método 4: Verificar logs de eventos recientes
+$comandoEventos = 'adb shell "logcat -d -s power_supply 2>/dev/null | tail -n 10"';
+$resultadoEventos = shell_exec($comandoEventos);
 
-if (!empty(trim($resultadoHistorialCarga))) {
-    echo $bold . $amarelo . "[i] Eventos de carga recientes:\n";
-    echo $resultadoHistorialCarga . "\n";
+if (!empty($resultadoEventos)) {
+    echo $bold . $amarelo . "[i] Eventos recientes de power_supply:\n";
+    echo $resultadoEventos . "\n";
+    
+    if (strpos(strtolower($resultadoEventos), 'usb') !== false) {
+        echo $bold . $vermelho . "[!] Evento USB detectado en logs del sistema\n\n";
+        $conexionPCDetectada = true;
+    }
+}
+
+// Mostrar resultado final
+if ($conexionPCDetectada) {
+    echo $bold . $vermelho . "[!] Dispositivo fue conectado a PC - APLIQUE WO!\n\n";
 } else {
-    echo $bold . $fverde . "[i] No se encontraron eventos de carga recientes\n\n";
+    echo $bold . $fverde . "[i] No se ha encontrado ninguna conexión USB sospechosa (solo cargador detectado)\n\n";
+}
+
+// Verificar historial de carga más detallado
+echo $bold . $azul . "[+] Verificando historial detallado de carga...\n";
+$comandoHistorialDetallado = 'adb shell "dumpsys batterystats --checkin 2>/dev/null | grep -i usb | tail -n 3"';
+$resultadoHistorialDetallado = shell_exec($comandoHistorialDetallado);
+
+if (!empty($resultadoHistorialDetallado)) {
+    echo $bold . $amarelo . "[i] Historial de eventos USB:\n";
+    echo $resultadoHistorialDetallado . "\n\n";
+} else {
+    echo $bold . $fverde . "[i] No se encontraron eventos USB en el historial de batería\n\n";
 }
                 
                 
