@@ -2661,127 +2661,173 @@ if (!empty($resultadoHistorialDetallado)) {
                 
                 
                 
-echo $bold . $azul . "[+] Verificando aplicaciones desinstaladas recientemente con uso de batería...\n";
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                echo $bold . $azul . "[+] Verificando aplicaciones desinstaladas recientemente...\n";
 
-// 1. Obtener estadísticas detalladas de uso de batería
-$comandoBateria = 'adb shell dumpsys batterystats --checkin 2>/dev/null | grep -E "([0-9]+,){4}(apk|uid)" | head -n 50';
-$resultadoBateria = shell_exec($comandoBateria);
+// 1. Obtener lista actual de aplicaciones instaladas
+$comandoPaquetesActuales = 'adb shell pm list packages -f 2>/dev/null';
+$resultadoPaquetesActuales = shell_exec($comandoPaquetesActuales);
 
-$paquetesConUso = [];
-$uidsConUso = [];
-
-if (!empty($resultadoBateria)) {
-    echo $bold . $amarelo . "[i] Analizando estadísticas de uso de batería...\n";
-    
-    $lineas = explode("\n", trim($resultadoBateria));
-    foreach ($lineas as $linea) {
-        $partes = explode(",", trim($linea));
-        if (count($partes) >= 6) {
-            if ($partes[3] === "apk") {
-                $uid = $partes[4];
-                $paquete = $partes[5];
-                $paquetesConUso[$uid] = $paquete;
-            } elseif ($partes[3] === "uid") {
-                $uid = $partes[4];
-                $uidsConUso[$uid] = true;
-            }
-        }
-    }
-}
-
-// 2. Obtener lista de aplicaciones instaladas actualmente
-$comandoPaquetes = 'adb shell pm list packages -f 2>/dev/null';
-$resultadoPaquetes = shell_exec($comandoPaquetes);
-
-$paquetesInstalados = [];
-if (!empty($resultadoPaquetes)) {
-    $lineas = explode("\n", trim($resultadoPaquetes));
+$paquetesInstaladosActuales = [];
+if (!empty($resultadoPaquetesActuales)) {
+    $lineas = explode("\n", trim($resultadoPaquetesActuales));
     foreach ($lineas as $linea) {
         if (preg_match('/package:(.*\.apk)=([^\/]+)$/', $linea, $matches)) {
-            $paquetesInstalados[$matches[2]] = true;
+            $paquetesInstaladosActuales[$matches[2]] = true;
         }
     }
 }
 
-// 3. Verificar qué paquetes con uso de batería no están instalados
-$paquetesDesinstalados = [];
-foreach ($paquetesConUso as $uid => $paquete) {
-    if (!isset($paquetesInstalados[$paquete])) {
-        $paquetesDesinstalados[$paquete] = $uid;
-    }
-}
+// 2. Obtener historial de eventos recientes del sistema
+$comandoEventosRecientes = 'adb logcat -d -v time --pid=$(adb shell pidof -s system_server) 2>/dev/null | grep -E "PackageManager|ActivityManager|package.*install|package.*remove" | tail -n 30';
+$resultadoEventosRecientes = shell_exec($comandoEventosRecientes);
 
-// 4. Verificar también UIDs con uso que no tienen paquete asociado
-foreach ($uidsConUso as $uid => $valor) {
-    if (!isset($paquetesConUso[$uid])) {
-        // Intentar encontrar el nombre del paquete para este UID
-        $comandoPaquetePorUID = 'adb shell cmd package list packages --uid ' . $uid . ' 2>/dev/null';
-        $resultadoPaquetePorUID = shell_exec($comandoPaquetePorUID);
-        
-        if (!empty($resultadoPaquetePorUID)) {
-            if (preg_match('/package:([^\/]+)$/', $resultadoPaquetePorUID, $matches)) {
+$paquetesDesinstaladosRecientes = [];
+$eventosDesinstalacion = [];
+
+if (!empty($resultadoEventosRecientes)) {
+    echo $bold . $amarelo . "[i] Analizando eventos recientes del sistema...\n";
+    
+    $lineas = explode("\n", trim($resultadoEventosRecientes));
+    foreach ($lineas as $linea) {
+        // Buscar eventos de desinstalación
+        if (strpos(strtolower($linea), 'remove') !== false || 
+            strpos(strtolower($linea), 'uninstall') !== false ||
+            strpos(strtolower($linea), 'delete') !== false) {
+            
+            // Extraer nombre del paquete
+            if (preg_match('/package:([a-zA-Z0-9._]+)/', $linea, $matches)) {
                 $paquete = $matches[1];
-                if (!isset($paquetesInstalados[$paquete])) {
-                    $paquetesDesinstalados[$paquete] = $uid;
+                $eventosDesinstalacion[$paquete] = $linea;
+                
+                // Verificar si el paquete ya no está instalado
+                if (!isset($paquetesInstaladosActuales[$paquete])) {
+                    $paquetesDesinstaladosRecientes[$paquete] = $linea;
                 }
             }
-        } else {
-            // Si no encontramos el paquete por UID, puede estar desinstalado
-            echo $bold . $amarelo . "[i] UID $uid tiene uso de batería pero no se encuentra el paquete asociado\n";
         }
     }
 }
 
-// 5. Buscar en logs eventos de desinstalación
-$comandoLogsDesinstalacion = 'adb logcat -d -v time 2>/dev/null | grep -i "package.*remove\|uninstall\|delete" | tail -n 10';
-$resultadoLogsDesinstalacion = shell_exec($comandoLogsDesinstalacion);
+// 3. Verificar uso reciente de aplicaciones mediante UsageStats
+$comandoUsageStats = 'adb shell dumpsys usagestats 2>/dev/null | grep -A5 -B5 "MOVE_TO_FOREGROUND" | head -n 20';
+$resultadoUsageStats = shell_exec($comandoUsageStats);
 
-$logsDesinstalacion = [];
-if (!empty($resultadoLogsDesinstalacion)) {
-    $lineas = explode("\n", trim($resultadoLogsDesinstalacion));
+$aplicacionesUsadasRecientemente = [];
+if (!empty($resultadoUsageStats)) {
+    $lineas = explode("\n", trim($resultadoUsageStats));
     foreach ($lineas as $linea) {
-        if (preg_match('/package:([^\/ ]+)/', $linea, $matches)) {
-            $paquete = $matches[1];
-            $logsDesinstalacion[$paquete] = $linea;
+        if (strpos($linea, 'package=') !== false) {
+            preg_match('/package=([a-zA-Z0-9._]+)/', $linea, $matches);
+            if (!empty($matches[1])) {
+                $paquete = $matches[1];
+                $aplicacionesUsadasRecientemente[$paquete] = true;
+            }
         }
     }
 }
 
-// 6. Mostrar resultados
-if (!empty($paquetesDesinstalados)) {
-    echo $bold . $vermelho . "[!] Aplicaciones desinstaladas con uso reciente de batería:\n";
-    foreach ($paquetesDesinstalados as $paquete => $uid) {
-        echo $bold . $vermelho . "  - Paquete: " . $paquete . " (UID: " . $uid . ")\n";
+// 4. Verificar aplicaciones que fueron usadas recientemente pero ya no están instaladas
+$aplicacionesUsadasYDesinstaladas = [];
+foreach ($aplicacionesUsadasRecientemente as $paquete => $valor) {
+    if (!isset($paquetesInstaladosActuales[$paquete])) {
+        $aplicacionesUsadasYDesinstaladas[$paquete] = true;
+    }
+}
+
+// 5. Mostrar resultados
+$desinstalacionesDetectadas = false;
+
+if (!empty($paquetesDesinstaladosRecientes)) {
+    echo $bold . $vermelho . "[!] Aplicaciones desinstaladas recientemente detectadas:\n";
+    foreach ($paquetesDesinstaladosRecientes as $paquete => $evento) {
+        echo $bold . $vermelho . "  - Paquete: " . $paquete . "\n";
+        echo $bold . $amarelo . "    Evento: " . $evento . "\n";
         
-        // Buscar logs específicos de esta aplicación
-        $comandoLogsApp = 'adb logcat -d -v time 2>/dev/null | grep -i ' . escapeshellarg($paquete) . ' | tail -n 3';
-        $resultadoLogsApp = shell_exec($comandoLogsApp);
-        
-        if (!empty($resultadoLogsApp)) {
-            echo $bold . $amarelo . "    Últimos logs:\n";
-            echo $resultadoLogsApp . "\n";
-        }
-        
-        // Verificar si hay logs de desinstalación para este paquete
-        if (isset($logsDesinstalacion[$paquete])) {
-            echo $bold . $amarelo . "    Log de desinstalación: " . $logsDesinstalacion[$paquete] . "\n";
+        // Verificar si fue usada recientemente
+        if (isset($aplicacionesUsadasYDesinstaladas[$paquete])) {
+            echo $bold . $vermelho . "    FUE USADA RECIENTEMENTE Y LUEGO DESINSTALADA!\n";
         }
         
         echo "\n";
+        $desinstalacionesDetectadas = true;
     }
-    echo $bold . $vermelho . "[!] Se detectaron aplicaciones desinstaladas con uso reciente de batería - APLIQUE WO!\n\n";
-} else {
-    echo $bold . $fverde . "[i] No se encontraron aplicaciones desinstaladas con uso reciente de batería\n\n";
 }
 
-// 7. Verificar logs de desinstalación en general
-if (!empty($logsDesinstalacion)) {
-    echo $bold . $azul . "[+] Eventos de desinstalación recientes encontrados:\n";
-    foreach ($logsDesinstalacion as $paquete => $log) {
-        echo $bold . $amarelo . "  - " . $paquete . ": " . $log . "\n";
+if (!empty($aplicacionesUsadasYDesinstaladas)) {
+    foreach ($aplicacionesUsadasYDesinstaladas as $paquete => $valor) {
+        if (!isset($paquetesDesinstaladosRecientes[$paquete])) {
+            echo $bold . $vermelho . "[!] Aplicación usada recientemente y desinstalada: " . $paquete . "\n";
+            
+            // Buscar logs relacionados con esta aplicación
+            $comandoLogsApp = 'adb logcat -d -v time 2>/dev/null | grep -i ' . escapeshellarg($paquete) . ' | tail -n 3';
+            $resultadoLogsApp = shell_exec($comandoLogsApp);
+            
+            if (!empty($resultadoLogsApp)) {
+                echo $bold . $amarelo . "    Últimos logs:\n";
+                echo $resultadoLogsApp . "\n";
+            }
+            
+            echo "\n";
+            $desinstalacionesDetectadas = true;
+        }
     }
-    echo "\n";
 }
+
+if ($desinstalacionesDetectadas) {
+    echo $bold . $vermelho . "[!] Se detectaron aplicaciones desinstaladas recientemente - APLIQUE WO!\n\n";
+} else {
+    echo $bold . $fverde . "[i] No se encontraron aplicaciones desinstaladas recientemente\n\n";
+    
+    // Mostrar eventos de desinstalación encontrados (para depuración)
+    if (!empty($eventosDesinstalacion)) {
+        echo $bold . $amarelo . "[i] Eventos de desinstalación encontrados (pero las apps siguen instaladas):\n";
+        foreach ($eventosDesinstalacion as $paquete => $evento) {
+            echo "  - " . $paquete . ": " . $evento . "\n";
+        }
+        echo "\n";
+    }
+}
+
+// 6. Verificar directorio de datos de aplicaciones eliminadas
+echo $bold . $azul . "[+] Verificando datos residuales de aplicaciones...\n";
+$comandoDatosResiduales = 'adb shell "find /data/data -maxdepth 1 -type d -mtime -1 2>/dev/null | head -n 10"';
+$resultadoDatosResiduales = shell_exec($comandoDatosResiduales);
+
+if (!empty($resultadoDatosResiduales)) {
+    $directorios = explode("\n", trim($resultadoDatosResiduales));
+    foreach ($directorios as $directorio) {
+        $paquete = basename($directorio);
+        if (!isset($paquetesInstaladosActuales[$paquete])) {
+            echo $bold . $vermelho . "[!] Directorio de datos residuales encontrado: " . $directorio . "\n";
+            echo $bold . $amarelo . "    La aplicación " . $paquete . " no está instalada pero tiene datos residuales\n";
+            
+            // Verificar cuándo fue modificado por última vez
+            $comandoModificacion = 'adb shell stat -c "%y" ' . $directorio . ' 2>/dev/null';
+            $resultadoModificacion = shell_exec($comandoModificacion);
+            
+            if (!empty($resultadoModificacion)) {
+                echo $bold . $amarelo . "    Última modificación: " . trim($resultadoModificacion) . "\n";
+            }
+            
+            echo "\n";
+            $desinstalacionesDetectadas = true;
+        }
+    }
+}
+                
+                
                 
                 
                 
