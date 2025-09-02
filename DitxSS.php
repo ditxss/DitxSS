@@ -2477,10 +2477,14 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
 
 
 
+
+
+
                 
 echo $bold . $azul . "[+] Verificando conexiones USB recientes (últimas 3 horas)...\n";
 
 $conexionPCDetectada = false;
+$eventosSospechosos = [];
 
 // Método 1: Verificar estado actual de la batería
 $comandoCargaActual = 'adb shell dumpsys battery 2>/dev/null';
@@ -2491,8 +2495,7 @@ if (!empty($resultadoCargaActual)) {
     // Extraer el estado de USB powered
     if (preg_match('/USB powered:\s*true/i', $resultadoCargaActual)) {
         $usbPoweredActual = true;
-        echo $bold . $vermelho . "[!] Dispositivo actualmente conectado via USB\n";
-        $conexionPCDetectada = true;
+        echo $bold . $amarelo . "[i] Dispositivo actualmente conectado via USB\n";
     }
     
     // Mostrar información de la batería
@@ -2500,15 +2503,15 @@ if (!empty($resultadoCargaActual)) {
     echo $resultadoCargaActual . "\n";
 }
 
-// Método 2: Verificar logs de eventos USB recientes
-$comandoLogcat = 'adb shell logcat -d -v time 2>/dev/null | grep -i "usb\|power_supply" | tail -n 20';
+// Método 2: Verificar logs de eventos USB recientes con análisis más preciso
+$comandoLogcat = 'adb shell logcat -d -v time 2>/dev/null | grep -i "usb\|mtp\|rndis\|adb\|charging\|power_supply" | tail -n 40';
 $resultadoLogcat = shell_exec($comandoLogcat);
 
 if (!empty($resultadoLogcat)) {
-    echo $bold . $amarelo . "[i] Eventos recientes de USB/power_supply:\n";
+    echo $bold . $amarelo . "[i] Eventos recientes de USB:\n";
     echo $resultadoLogcat . "\n";
     
-    // Dividir por líneas y verificar si hay eventos de conexión USB
+    // Dividir por líneas y verificar si hay eventos de conexión USB a PC
     $lineas = explode("\n", trim($resultadoLogcat));
     $tresHorasAtras = time() - (3 * 3600);
     
@@ -2522,13 +2525,55 @@ if (!empty($resultadoLogcat)) {
                 $timestampLog = strtotime($fechaLogConAnio);
                 
                 if ($timestampLog && $timestampLog >= $tresHorasAtras) {
-                    // Verificar si la línea indica conexión USB a PC
-                    if (strpos(strtolower($linea), 'usb') !== false && 
-                        (strpos(strtolower($linea), 'connected') !== false || 
-                         strpos(strtolower($linea), 'host') !== false ||
-                         strpos(strtolower($linea), 'config') !== false)) {
-                        echo $bold . $vermelho . "[!] Evento reciente de conexión USB detectado: " . trim($linea) . "\n";
+                    // Patrones que indican claramente una conexión a PC (no solo cargador)
+                    $patronesPC = [
+                        'connected=true',           // Conexión establecida
+                        'config=mtp',               // Modo de transferencia de archivos
+                        'config=rndis',             // Modo de ethernet USB
+                        'config=adb',               // Modo de depuración
+                        'currentDataRole=host',     // Dispositivo actúa como host
+                        'currentMode=dfp',          // Modo downstream facing port (como PC)
+                        'MTP_ENABLED',              // MTP activado
+                        'FUNCTION_ADB',             // ADB activado
+                        'FUNCTION_MTP',             // MTP activado
+                        'FUNCTION_RNDIS',           // RNDIS activado
+                    ];
+                    
+                    // Patrones que indican solo carga
+                    $patronesCargador = [
+                        'connected=false',          // Desconexión
+                        'config=charging',          // Solo carga
+                        'currentDataRole=device',   // Dispositivo actúa como periférico
+                        'currentMode=ufp',          // Modo upstream facing port (como periférico)
+                        'CHARGING',                 // Cargando
+                    ];
+                    
+                    $esPC = false;
+                    $esCargador = false;
+                    
+                    // Verificar patrones de PC
+                    foreach ($patronesPC as $patron) {
+                        if (strpos(strtolower($linea), strtolower($patron)) !== false) {
+                            $esPC = true;
+                            break;
+                        }
+                    }
+                    
+                    // Verificar patrones de cargador
+                    foreach ($patronesCargador as $patron) {
+                        if (strpos(strtolower($linea), strtolower($patron)) !== false) {
+                            $esCargador = true;
+                            break;
+                        }
+                    }
+                    
+                    // Solo marcar como PC si hay evidencia clara y no es solo cargador
+                    if ($esPC && !$esCargador) {
+                        $eventosSospechosos[] = $linea;
+                        echo $bold . $vermelho . "[!] Evento de conexión a PC detectado: " . trim($linea) . "\n";
                         $conexionPCDetectada = true;
+                    } elseif ($esCargador) {
+                        echo $bold . $fverde . "[i] Evento de carga detectado: " . trim($linea) . "\n";
                     }
                 }
             }
@@ -2542,38 +2587,61 @@ $resultadoCorriente = shell_exec($comandoCorriente);
 
 if (!empty($resultadoCorriente)) {
     $corriente = intval(trim($resultadoCorriente));
-    if ($corriente > 0 && $corriente < 1000) {
-        echo $bold . $vermelho . "[!] Corriente de carga baja detectada: " . $corriente . " mA (posible PC)\n";
+    if ($corriente > 0 && $corriente < 500) {
+        echo $bold . $vermelho . "[!] Corriente de carga muy baja: " . $corriente . " mA (posible PC)\n";
         $conexionPCDetectada = true;
+    } elseif ($corriente >= 500 && $corriente < 1000) {
+        echo $bold . $amarelo . "[i] Corriente de carga baja: " . $corriente . " mA (posible cargador lento)\n";
     } elseif ($corriente >= 1000) {
-        echo $bold . $fverde . "[i] Corriente de carga alta: " . $corriente . " mA (posible cargador)\n";
+        echo $bold . $fverde . "[i] Corriente de carga alta: " . $corriente . " mA (posible cargador rápido)\n";
     }
 }
 
 // Método 4: Verificar el tipo de conexión actual
-$comandoTipoUSB = 'adb shell cat /sys/class/power_supply/usb/real_type 2>/dev/null';
+$comandoTipoUSB = 'adb shell cat /sys/class/power_supply/usb/type 2>/dev/null';
 $resultadoTipoUSB = shell_exec($comandoTipoUSB);
 
 if (!empty($resultadoTipoUSB)) {
     $tipoUSB = trim($resultadoTipoUSB);
-    if (strpos(strtolower($tipoUSB), 'sdp') !== false || strpos(strtolower($tipoUSB), 'dedicated') !== false) {
-        echo $bold . $vermelho . "[!] Tipo de conexión USB detectado: " . $tipoUSB . " (posible PC)\n";
+    if (strpos(strtolower($tipoUSB), 'sdp') !== false) {
+        echo $bold . $vermelho . "[!] Tipo de conexión USB: " . $tipoUSB . " (Standard Downstream Port - posible PC)\n";
         $conexionPCDetectada = true;
+    } elseif (strpos(strtolower($tipoUSB), 'dcp') !== false) {
+        echo $bold . $fverde . "[i] Tipo de conexión USB: " . $tipoUSB . " (Dedicated Charging Port - cargador)\n";
+    } elseif (strpos(strtolower($tipoUSB), 'cdp') !== false) {
+        echo $bold . $amarelo . "[i] Tipo de conexión USB: " . $tipoUSB . " (Charging Downstream Port - puede ser PC o cargador)\n";
     } else {
-        echo $bold . $fverde . "[i] Tipo de conexión USB: " . $tipoUSB . " (posible cargador)\n";
+        echo $bold . $amarelo . "[i] Tipo de conexión USB: " . $tipoUSB . "\n";
     }
 }
 
-// Mostrar resultado final
-if ($conexionPCDetectada) {
-    echo $bold . $vermelho . "[!] Dispositivo fue conectado a PC - APLIQUE WO!\n\n";
+// Método 5: Verificar si ADB está activo (indicador claro de conexión a PC)
+$comandoADB = 'adb shell getprop persist.sys.usb.config 2>/dev/null';
+$resultadoADB = shell_exec($comandoADB);
+
+if (!empty($resultadoADB)) {
+    $configUSB = trim($resultadoADB);
+    if (strpos(strtolower($configUSB), 'adb') !== false) {
+        echo $bold . $vermelho . "[!] Configuración USB incluye ADB: " . $configUSB . " (posible conexión a PC)\n";
+        $conexionPCDetectada = true;
+    } else {
+        echo $bold . $fverde . "[i] Configuración USB: " . $configUSB . " (sin ADB)\n";
+    }
+}
+
+// Mostrar resultado final - solo marcar como PC si hay múltiples evidencias
+$evidencias = count($eventosSospechosos);
+if ($conexionPCDetectada && $evidencias >= 2) {
+    echo $bold . $vermelho . "[!] Múltiples evidencias de conexión a PC detectadas (" . $evidencias . " eventos) - APLIQUE WO!\n\n";
+} elseif ($conexionPCDetectada && $evidencias == 1) {
+    echo $bold . $amarelo . "[!] Evidencia débil de posible conexión a PC (" . $evidencias . " evento) - revisar manualmente\n\n";
 } else {
-    echo $bold . $fverde . "[i] No se ha encontrado ninguna conexión USB sospechosa (solo cargador detectado)\n\n";
+    echo $bold . $fverde . "[i] No se ha encontrado evidencia sólida de conexión a PC (solo cargador detectado)\n\n";
 }
 
 // Verificar historial de carga más detallado
 echo $bold . $azul . "[+] Verificando historial detallado de carga...\n";
-$comandoHistorialDetallado = 'adb shell dumpsys batterystats --checkin 2>/dev/null | grep -i "usb\|charge" | tail -n 5';
+$comandoHistorialDetallado = 'adb shell dumpsys batterystats --checkin 2>/dev/null | grep -i "usb\|charge\|power" | tail -n 5';
 $resultadoHistorialDetallado = shell_exec($comandoHistorialDetallado);
 
 if (!empty($resultadoHistorialDetallado)) {
@@ -2582,7 +2650,6 @@ if (!empty($resultadoHistorialDetallado)) {
 } else {
     echo $bold . $fverde . "[i] No se encontraron eventos USB/carga en el historial de batería\n\n";
 }
-                
                 
 
 
