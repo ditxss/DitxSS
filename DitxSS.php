@@ -2478,41 +2478,20 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
 
 
                 
-echo $bold . $azul . "[+] Verificando conexiones USB recientes...\n";
+echo $bold . $azul . "[+] Verificando conexiones USB recientes (últimas 3 horas)...\n";
 
-// Método 1: Verificar logs del kernel para eventos USB (usando dmesg)
 $conexionPCDetectada = false;
-$comandoDmesg = 'adb shell "dmesg -T 2>/dev/null | tail -n 50"';
-$resultadoDmesg = shell_exec($comandoDmesg);
 
-if (!empty($resultadoDmesg)) {
-    $lineas = explode("\n", trim($resultadoDmesg));
-    
-    foreach ($lineas as $linea) {
-        if (!empty(trim($linea)) && 
-            (strpos(strtolower($linea), 'usb') !== false || 
-             strpos(strtolower($linea), 'connected') !== false)) {
-            
-            // Verificar si la línea es reciente (contiene una fecha/hora reciente)
-            if (preg_match('/\[([A-Za-z]{3} [A-Za-z]{3} [0-9]{1,2} [0-9]{2}:[0-9]{2}:[0-9]{2} [0-9]{4})\]/', $linea, $matchTime)) {
-                $logTime = strtotime($matchTime[1]);
-                if ($logTime && (time() - $logTime) < 10800) { // 3 horas en segundos
-                    echo $bold . $vermelho . "[!] Dispositivo fue conectado a PC (detectado en logs del kernel)\n";
-                    echo $bold . $amarelo . "[i] Evento: " . trim($linea) . "\n\n";
-                    $conexionPCDetectada = true;
-                }
-            }
-        }
-    }
-}
-
-// Método 2: Verificar estadísticas de carga actual
+// Método 1: Verificar estado actual de la batería
 $comandoCargaActual = 'adb shell dumpsys battery 2>/dev/null';
 $resultadoCargaActual = shell_exec($comandoCargaActual);
 
+$usbPoweredActual = false;
 if (!empty($resultadoCargaActual)) {
-    if (strpos(strtolower($resultadoCargaActual), 'usb') !== false) {
-        echo $bold . $vermelho . "[!] Dispositivo actualmente conectado via USB (posible PC)\n";
+    // Extraer el estado de USB powered
+    if (preg_match('/USB powered:\s*true/i', $resultadoCargaActual)) {
+        $usbPoweredActual = true;
+        echo $bold . $vermelho . "[!] Dispositivo actualmente conectado via USB\n";
         $conexionPCDetectada = true;
     }
     
@@ -2521,26 +2500,67 @@ if (!empty($resultadoCargaActual)) {
     echo $resultadoCargaActual . "\n";
 }
 
-// Método 3: Verificar archivos del sistema para detectar conexiones USB
-$comandoUSBFiles = 'adb shell "ls -la /sys/class/power_supply/usb/ 2>/dev/null; ls -la /sys/class/power_supply/*/usb_* 2>/dev/null"';
-$resultadoUSBFiles = shell_exec($comandoUSBFiles);
+// Método 2: Verificar logs de eventos USB recientes
+$comandoLogcat = 'adb shell logcat -d -v time 2>/dev/null | grep -i "usb\|power_supply" | tail -n 20';
+$resultadoLogcat = shell_exec($comandoLogcat);
 
-if (!empty($resultadoUSBFiles)) {
-    echo $bold . $amarelo . "[i] Archivos de control USB encontrados:\n";
-    echo $resultadoUSBFiles . "\n";
+if (!empty($resultadoLogcat)) {
+    echo $bold . $amarelo . "[i] Eventos recientes de USB/power_supply:\n";
+    echo $resultadoLogcat . "\n";
+    
+    // Dividir por líneas y verificar si hay eventos de conexión USB
+    $lineas = explode("\n", trim($resultadoLogcat));
+    $tresHorasAtras = time() - (3 * 3600);
+    
+    foreach ($lineas as $linea) {
+        if (!empty(trim($linea))) {
+            // Extraer la fecha y hora del log (formato: MM-DD HH:MM:SS.mmm)
+            if (preg_match('/^(\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})/', $linea, $match)) {
+                $fechaLog = $match[1];
+                // Convertir a timestamp (asumiendo el año actual)
+                $fechaLogConAnio = date('Y') . '-' . substr($fechaLog, 0, 2) . '-' . substr($fechaLog, 3, 2) . ' ' . substr($fechaLog, 6, 8);
+                $timestampLog = strtotime($fechaLogConAnio);
+                
+                if ($timestampLog && $timestampLog >= $tresHorasAtras) {
+                    // Verificar si la línea indica conexión USB a PC
+                    if (strpos(strtolower($linea), 'usb') !== false && 
+                        (strpos(strtolower($linea), 'connected') !== false || 
+                         strpos(strtolower($linea), 'host') !== false ||
+                         strpos(strtolower($linea), 'config') !== false)) {
+                        echo $bold . $vermelho . "[!] Evento reciente de conexión USB detectado: " . trim($linea) . "\n";
+                        $conexionPCDetectada = true;
+                    }
+                }
+            }
+        }
+    }
 }
 
-// Método 4: Verificar logs de eventos recientes
-$comandoEventos = 'adb shell "logcat -d -s power_supply 2>/dev/null | tail -n 10"';
-$resultadoEventos = shell_exec($comandoEventos);
+// Método 3: Verificar estadísticas de carga para detectar si fue cargador o PC
+$comandoCorriente = 'adb shell cat /sys/class/power_supply/usb/current_max 2>/dev/null';
+$resultadoCorriente = shell_exec($comandoCorriente);
 
-if (!empty($resultadoEventos)) {
-    echo $bold . $amarelo . "[i] Eventos recientes de power_supply:\n";
-    echo $resultadoEventos . "\n";
-    
-    if (strpos(strtolower($resultadoEventos), 'usb') !== false) {
-        echo $bold . $vermelho . "[!] Evento USB detectado en logs del sistema\n\n";
+if (!empty($resultadoCorriente)) {
+    $corriente = intval(trim($resultadoCorriente));
+    if ($corriente > 0 && $corriente < 1000) {
+        echo $bold . $vermelho . "[!] Corriente de carga baja detectada: " . $corriente . " mA (posible PC)\n";
         $conexionPCDetectada = true;
+    } elseif ($corriente >= 1000) {
+        echo $bold . $fverde . "[i] Corriente de carga alta: " . $corriente . " mA (posible cargador)\n";
+    }
+}
+
+// Método 4: Verificar el tipo de conexión actual
+$comandoTipoUSB = 'adb shell cat /sys/class/power_supply/usb/real_type 2>/dev/null';
+$resultadoTipoUSB = shell_exec($comandoTipoUSB);
+
+if (!empty($resultadoTipoUSB)) {
+    $tipoUSB = trim($resultadoTipoUSB);
+    if (strpos(strtolower($tipoUSB), 'sdp') !== false || strpos(strtolower($tipoUSB), 'dedicated') !== false) {
+        echo $bold . $vermelho . "[!] Tipo de conexión USB detectado: " . $tipoUSB . " (posible PC)\n";
+        $conexionPCDetectada = true;
+    } else {
+        echo $bold . $fverde . "[i] Tipo de conexión USB: " . $tipoUSB . " (posible cargador)\n";
     }
 }
 
@@ -2553,14 +2573,14 @@ if ($conexionPCDetectada) {
 
 // Verificar historial de carga más detallado
 echo $bold . $azul . "[+] Verificando historial detallado de carga...\n";
-$comandoHistorialDetallado = 'adb shell "dumpsys batterystats --checkin 2>/dev/null | grep -i usb | tail -n 3"';
+$comandoHistorialDetallado = 'adb shell dumpsys batterystats --checkin 2>/dev/null | grep -i "usb\|charge" | tail -n 5';
 $resultadoHistorialDetallado = shell_exec($comandoHistorialDetallado);
 
 if (!empty($resultadoHistorialDetallado)) {
-    echo $bold . $amarelo . "[i] Historial de eventos USB:\n";
+    echo $bold . $amarelo . "[i] Historial de eventos USB/carga:\n";
     echo $resultadoHistorialDetallado . "\n\n";
 } else {
-    echo $bold . $fverde . "[i] No se encontraron eventos USB en el historial de batería\n\n";
+    echo $bold . $fverde . "[i] No se encontraron eventos USB/carga en el historial de batería\n\n";
 }
                 
                 
