@@ -1162,19 +1162,34 @@ escolheropcoes:
                 
                 
                 
-                echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
+                
+                
+                
+                
+                
+                
+                
+                
+          echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
 
+// Obtener la hora actual para comparaciones
+$currentTime = time();
+
+// Verificar rutas de WhatsApp por separado (con espacios escapados correctamente)
 $rutasWhatsApp = [
-    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents',
-    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Private',
-    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents/Sent'
+    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp\ Documents',
+    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp\ Documents/Private',
+    '/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp\ Documents/Sent'
 ];
 
 foreach ($rutasWhatsApp as $ruta) {
-    $comandoStat = 'adb shell stat ' . escapeshellarg($ruta) . ' 2>&1';
+    // Usar comillas adecuadas para manejar espacios en las rutas
+    $comandoStat = 'adb shell "stat ' . $ruta . ' 2>/dev/null"';
     $resultadoStat = shell_exec($comandoStat);
+    
+    echo $bold . $cinza . "[DEBUG] Resultado para $ruta: " . trim($resultadoStat) . "\n" . $cln;
 
-    if (strpos($resultadoStat, 'File:') !== false) {
+    if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
         preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
         preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
 
@@ -1182,62 +1197,592 @@ foreach ($rutasWhatsApp as $ruta) {
             $dataModify = trim($matchModify[1]);
             $dataChange = trim($matchChange[1]);
 
+            // Verificar milisegundos .000 (Bypass Detectado)
+            $bypassDetectado = false;
+            if (preg_match('/\.0+$/', $dataModify) || preg_match('/\.0+$/', $dataChange)) {
+                echo $bold . $vermelho . "[!] Bypass Detectado: Timestamps con .000\n";
+                echo $bold . $amarelo . "[i] Ruta: " . str_replace('\\', '', $ruta) . "\n";
+                echo $bold . $amarelo . "[i] Modify: " . $dataModify . "\n";
+                echo $bold . $amarelo . "[i] Change: " . $dataChange . "\n\n";
+                $bypassDetectado = true;
+            }
+
             $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
             $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
-
+            
+            // Convertir a timestamp para verificación de tiempo
+            $modifyTimestamp = strtotime($dataModifyFormatada);
+            $changeTimestamp = strtotime($dataChangeFormatada);
+            
+            // Verificar si hubo modificación (Modify ≠ Change)
+            $modificacionDetectada = false;
             if ($dataModifyFormatada !== $dataChangeFormatada) {
                 echo $bold . $vermelho . "[!] WhatsApp Documents Modificado\n";
-                echo $bold . $amarelo . "[i] Ruta: " . $ruta . "\n";
+                echo $bold . $amarelo . "[i] Ruta: " . str_replace('\\', '', $ruta) . "\n";
                 echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+                $modificacionDetectada = true;
+            }
+            
+            // Verificar si la modificación fue reciente (últimas 4 horas)
+            $horasLimite = 4;
+            $tiempoLimite = $horasLimite * 3600; // 4 horas en segundos
+            
+            if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado) {
+                echo $bold . $vermelho . "[!] WhatsApp Documents Modificado Recientemente (últimas $horasLimite horas)\n";
+                echo $bold . $amarelo . "[i] Ruta: " . str_replace('\\', '', $ruta) . "\n";
+                echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n\n";
+                $modificacionDetectada = true;
+            }
+            
+            if (!$modificacionDetectada && !$bypassDetectado) {
+                echo $bold . $fverde . "[i] No se detectaron modificaciones recientes en: " . str_replace('\\', '', $ruta) . "\n\n";
+            }
+        } else {
+            echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . str_replace('\\', '', $ruta) . "\n\n";
+        }
+    } else {
+        echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . str_replace('\\', '', $ruta) . "\n\n";
+    }
+}
+
+// Verificar ruta Download (con espacios escapados)
+$rutaDownload = '/storage/emulated/0/Download';
+$comandoStat = 'adb shell "stat ' . $rutaDownload . ' 2>/dev/null"';
+$resultadoStat = shell_exec($comandoStat);
+
+echo $bold . $cinza . "[DEBUG] Resultado para $rutaDownload: " . trim($resultadoStat) . "\n" . $cln;
+
+if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
+    preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
+    preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
+
+    if ($matchModify && $matchChange) {
+        $dataModify = trim($matchModify[1]);
+        $dataChange = trim($matchChange[1]);
+
+        // Verificar milisegundos .000 (Bypass Detectado)
+        $bypassDetectado = false;
+        if (preg_match('/\.0+$/', $dataModify) || preg_match('/\.0+$/', $dataChange)) {
+            echo $bold . $vermelho . "[!] Bypass Detectado: Timestamps con .000\n";
+            echo $bold . $amarelo . "[i] Ruta: " . $rutaDownload . "\n";
+            echo $bold . $amarelo . "[i] Modify: " . $dataModify . "\n";
+            echo $bold . $amarelo . "[i] Change: " . $dataChange . "\n\n";
+            $bypassDetectado = true;
+        }
+
+        $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
+        $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
+        
+        // Convertir a timestamp para verificación de tiempo
+        $modifyTimestamp = strtotime($dataModifyFormatada);
+        $changeTimestamp = strtotime($dataChangeFormatada);
+        
+        // Verificar si hubo modificación (Modify ≠ Change)
+        $modificacionDetectada = false;
+        if ($dataModifyFormatada !== $dataChangeFormatada) {
+            echo $bold . $vermelho . "[!] Download Modificado\n";
+            echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+            $modificacionDetectada = true;
+        }
+        
+        // Verificar si la modificación fue reciente (últimas 4 horas)
+        $horasLimite = 4;
+        $tiempoLimite = $horasLimite * 3600; // 4 horas en segundos
+        
+        if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado) {
+            echo $bold . $vermelho . "[!] Download Modificado Recientemente (últimas $horasLimite horas)\n";
+            echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n\n";
+            $modificacionDetectada = true;
+        }
+        
+        if (!$modificacionDetectada && !$bypassDetectado) {
+            echo $bold . $fverde . "[i] No se detectaron modificaciones recientes en: " . $rutaDownload . "\n\n";
+        }
+    } else {
+        echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . $rutaDownload . "\n\n";
+    }
+} else {
+    echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . $rutaDownload . "\n\n";
+}
+
+
+
+
+// Verificar ruta /data/app
+$rutaDataApp = '/data/app';
+$comandoStat = 'adb shell "stat ' . $rutaDataApp . ' 2>/dev/null"';
+$resultadoStat = shell_exec($comandoStat);
+
+echo $bold . $cinza . "[DEBUG] Resultado para $rutaDataApp: " . trim($resultadoStat) . "\n" . $cln;
+
+if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
+    preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
+    preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
+
+    if ($matchModify && $matchChange) {
+        $dataModify = trim($matchModify[1]);
+        $dataChange = trim($matchChange[1]);
+
+        // Verificar milisegundos .000 (Bypass Detectado)
+        $bypassDetectado = false;
+        if (preg_match('/\.0+$/', $dataModify) || preg_match('/\.0+$/', $dataChange)) {
+            echo $bold . $vermelho . "[!] Bypass Detectado: Timestamps con .000\n";
+            echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+            echo $bold . $amarelo . "[i] Modify: " . $dataModify . "\n";
+            echo $bold . $amarelo . "[i] Change: " . $dataChange . "\n\n";
+            $bypassDetectado = true;
+        }
+
+        $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
+        $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
+        
+        // Convertir a timestamp para verificación de tiempo
+        $modifyTimestamp = strtotime($dataModifyFormatada);
+        $changeTimestamp = strtotime($dataChangeFormatada);
+        
+        // --- VERIFICACIÓN SI LA MODIFICACIÓN ES POR TERMUX ---
+        $esPorTermux = false;
+        $comandoTermux = 'adb shell "dumpsys package com.termux 2>/dev/null | grep firstInstallTime"';
+        $resultadoTermux = shell_exec($comandoTermux);
+        
+        if (!empty($resultadoTermux) && preg_match('/firstInstallTime=(\d+)/', $resultadoTermux, $matchTermux)) {
+            $termuxInstallTime = intval($matchTermux[1]) / 1000; // Convertir milisegundos a segundos
+            // Comparar con margen de 5 minutos (300 segundos)
+            if (abs($modifyTimestamp - $termuxInstallTime) < 300) {
+                $esPorTermux = true;
+                echo $bold . $amarelo . "[i] Última modificación perdida por la instalación de Termux\n";
+                echo $bold . $amarelo . "[i] Hora de instalación de Termux: " . date('Y-m-d H:i:s', $termuxInstallTime) . "\n";
+                echo $bold . $amarelo . "[i] Hora de modificación de /data/app: " . date('Y-m-d H:i:s', $modifyTimestamp) . "\n\n";
+            }
+        }
+        
+        // --- DETECTAR EL DIRECTORIO MÁS RECIENTE EN /data/app ---
+        $paqueteModificado = null;
+        $comandoListaApps = 'adb shell "ls -ltd /data/app/*/ 2>/dev/null | head -n 1"';
+        $resultadoListaApps = shell_exec($comandoListaApps);
+        
+        if (!empty($resultadoListaApps)) {
+            // Extraer la fecha y el nombre del directorio
+            if (preg_match('/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/', $resultadoListaApps, $matchFecha)) {
+                $fechaDir = $matchFecha[0];
+                $timestampDir = strtotime($fechaDir);
+                // Comparar con la modificación de /data/app (con margen de 1 minuto)
+                if (abs($timestampDir - $modifyTimestamp) < 60) {
+                    // Extraer el nombre del paquete (el directorio generalmente tiene el formato nombrePaquete-XXXXX)
+                    if (preg_match('/\/data\/app\/([^\/]+)\/$/', $resultadoListaApps, $matchPaquete)) {
+                        $paqueteModificado = $matchPaquete[1];
+                        // Eliminar cualquier sufijo (-XXXXX) para obtener el nombre del paquete puro
+                        $paqueteModificado = preg_replace('/-\w+$/', '', $paqueteModificado);
+                    }
+                }
+            }
+        }
+        
+        // Verificar si hubo modificación (Modify ≠ Change) y no es por Termux
+        $modificacionDetectada = false;
+        if ($dataModifyFormatada !== $dataChangeFormatada && !$esPorTermux) {
+            if ($paqueteModificado) {
+                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+                echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n";
+                echo $bold . $amarelo . "[i] Aplicación modificada: " . $paqueteModificado . "\n\n";
+            } else {
+                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+                echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n";
+                echo $bold . $vermelho . "[!] Se eliminó una aplicación y se detectó completamente 100% detectado\n\n";
+            }
+            $modificacionDetectada = true;
+        }
+        
+        // Verificar si la modificación fue reciente (últimas 4 horas) y no es por Termux
+        $horasLimite = 4;
+        $tiempoLimite = $horasLimite * 3600; // 4 horas en segundos
+        
+        if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado && !$esPorTermux) {
+            if ($paqueteModificado) {
+                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+                echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n";
+                echo $bold . $amarelo . "[i] Aplicación modificada: " . $paqueteModificado . "\n\n";
+            } else {
+                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas, tener en cuenta la hora de la instalación de la SS\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+                echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n";
+                echo $bold . $vermelho . "[!] Se eliminó una aplicación y se detectó completamente 100% detectado\n\n";
+            }
+            $modificacionDetectada = true;
+        }
+        
+        if (!$modificacionDetectada && !$bypassDetectado && !$esPorTermux) {
+            echo $bold . $fverde . "[i] No se detectaron modificaciones recientes en: " . $rutaDataApp . "\n\n";
+        }
+    } else {
+        echo $bold . $amarelo . "[!] No se pudieron extraer las fechas de modificación para: " . $rutaDataApp . "\n\n";
+    }
+} else {
+    echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . $rutaDataApp . "\n\n";
+}
+
+
+
+
+
+
+
+
+
+                
+echo $bold . $azul . "[+] Verificando conexiones USB recientes (últimas 3 horas)...\n";
+
+$conexionPCDetectada = false;
+$eventosSospechosos = [];
+
+// Método 1: Verificar estado actual de la batería
+$comandoCargaActual = 'adb shell dumpsys battery 2>/dev/null';
+$resultadoCargaActual = shell_exec($comandoCargaActual);
+
+$usbPoweredActual = false;
+if (!empty($resultadoCargaActual)) {
+    // Extraer el estado de USB powered
+    if (preg_match('/USB powered:\s*true/i', $resultadoCargaActual)) {
+        $usbPoweredActual = true;
+        echo $bold . $amarelo . "[i] Dispositivo actualmente conectado via USB\n";
+    }
+    
+    // Mostrar información de la batería
+    echo $bold . $amarelo . "[i] Estado actual de la batería:\n";
+    echo $resultadoCargaActual . "\n";
+}
+
+// Método 2: Verificar logs de eventos USB recientes con análisis más preciso
+$comandoLogcat = 'adb shell logcat -d -v time 2>/dev/null | grep -i "usb\|mtp\|rndis\|adb\|charging\|power_supply" | tail -n 40';
+$resultadoLogcat = shell_exec($comandoLogcat);
+
+if (!empty($resultadoLogcat)) {
+    echo $bold . $amarelo . "[i] Eventos recientes de USB:\n";
+    echo $resultadoLogcat . "\n";
+    
+    // Dividir por líneas y verificar si hay eventos de conexión USB a PC
+    $lineas = explode("\n", trim($resultadoLogcat));
+    $tresHorasAtras = time() - (3 * 3600);
+    
+    foreach ($lineas as $linea) {
+        if (!empty(trim($linea))) {
+            // Extraer la fecha y hora del log (formato: MM-DD HH:MM:SS.mmm)
+            if (preg_match('/^(\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})/', $linea, $match)) {
+                $fechaLog = $match[1];
+                // Convertir a timestamp (asumiendo el año actual)
+                $fechaLogConAnio = date('Y') . '-' . substr($fechaLog, 0, 2) . '-' . substr($fechaLog, 3, 2) . ' ' . substr($fechaLog, 6, 8);
+                $timestampLog = strtotime($fechaLogConAnio);
+                
+                if ($timestampLog && $timestampLog >= $tresHorasAtras) {
+                    // Patrones que indican claramente una conexión a PC (no solo cargador)
+                    $patronesPC = [
+                        'connected=true',           // Conexión establecida
+                        'config=mtp',               // Modo de transferencia de archivos
+                        'config=rndis',             // Modo de ethernet USB
+                        'config=adb',               // Modo de depuración
+                        'currentDataRole=host',     // Dispositivo actúa como host
+                        'currentMode=dfp',          // Modo downstream facing port (como PC)
+                        'MTP_ENABLED',              // MTP activado
+                        'FUNCTION_ADB',             // ADB activado
+                        'FUNCTION_MTP',             // MTP activado
+                        'FUNCTION_RNDIS',           // RNDIS activado
+                    ];
+                    
+                    // Patrones que indican solo carga
+                    $patronesCargador = [
+                        'connected=false',          // Desconexión
+                        'config=charging',          // Solo carga
+                        'currentDataRole=device',   // Dispositivo actúa como periférico
+                        'currentMode=ufp',          // Modo upstream facing port (como periférico)
+                        'CHARGING',                 // Cargando
+                    ];
+                    
+                    $esPC = false;
+                    $esCargador = false;
+                    
+                    // Verificar patrones de PC
+                    foreach ($patronesPC as $patron) {
+                        if (strpos(strtolower($linea), strtolower($patron)) !== false) {
+                            $esPC = true;
+                            break;
+                        }
+                    }
+                    
+                    // Verificar patrones de cargador
+                    foreach ($patronesCargador as $patron) {
+                        if (strpos(strtolower($linea), strtolower($patron)) !== false) {
+                            $esCargador = true;
+                            break;
+                        }
+                    }
+                    
+                    // Solo marcar como PC si hay evidencia clara y no es solo cargador
+                    if ($esPC && !$esCargador) {
+                        $eventosSospechosos[] = $linea;
+                        echo $bold . $vermelho . "[!] Evento de conexión a PC detectado: " . trim($linea) . "\n";
+                        $conexionPCDetectada = true;
+                    } elseif ($esCargador) {
+                        echo $bold . $fverde . "[i] Evento de carga detectado: " . trim($linea) . "\n";
+                    }
+                }
             }
         }
     }
 }
 
-$rutaDownload = '/storage/emulated/0/Download';
-$comandoStat = 'adb shell stat ' . escapeshellarg($rutaDownload) . ' 2>&1';
-$resultadoStat = shell_exec($comandoStat);
+// Método 3: Verificar estadísticas de carga para detectar si fue cargador o PC
+$comandoCorriente = 'adb shell cat /sys/class/power_supply/usb/current_max 2>/dev/null';
+$resultadoCorriente = shell_exec($comandoCorriente);
 
-if (strpos($resultadoStat, 'File:') !== false) {
-    preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
-    preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
+if (!empty($resultadoCorriente)) {
+    $corriente = intval(trim($resultadoCorriente));
+    if ($corriente > 0 && $corriente < 500) {
+        echo $bold . $vermelho . "[!] Corriente de carga muy baja: " . $corriente . " mA (posible PC)\n";
+        $conexionPCDetectada = true;
+    } elseif ($corriente >= 500 && $corriente < 1000) {
+        echo $bold . $amarelo . "[i] Corriente de carga baja: " . $corriente . " mA (posible cargador lento)\n";
+    } elseif ($corriente >= 1000) {
+        echo $bold . $fverde . "[i] Corriente de carga alta: " . $corriente . " mA (posible cargador rápido)\n";
+    }
+}
 
-    if ($matchModify && $matchChange) {
-        $dataModify = trim($matchModify[1]);
-        $dataChange = trim($matchChange[1]);
+// Método 4: Verificar el tipo de conexión actual
+$comandoTipoUSB = 'adb shell cat /sys/class/power_supply/usb/type 2>/dev/null';
+$resultadoTipoUSB = shell_exec($comandoTipoUSB);
 
-        $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
-        $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
+if (!empty($resultadoTipoUSB)) {
+    $tipoUSB = trim($resultadoTipoUSB);
+    if (strpos(strtolower($tipoUSB), 'sdp') !== false) {
+        echo $bold . $vermelho . "[!] Tipo de conexión USB: " . $tipoUSB . " (Standard Downstream Port - posible PC)\n";
+        $conexionPCDetectada = true;
+    } elseif (strpos(strtolower($tipoUSB), 'dcp') !== false) {
+        echo $bold . $fverde . "[i] Tipo de conexión USB: " . $tipoUSB . " (Dedicated Charging Port - cargador)\n";
+    } elseif (strpos(strtolower($tipoUSB), 'cdp') !== false) {
+        echo $bold . $amarelo . "[i] Tipo de conexión USB: " . $tipoUSB . " (Charging Downstream Port - puede ser PC o cargador)\n";
+    } else {
+        echo $bold . $amarelo . "[i] Tipo de conexión USB: " . $tipoUSB . "\n";
+    }
+}
 
-        if ($dataModifyFormatada !== $dataChangeFormatada) {
-            echo $bold . $vermelho . "[!] Download Modificado\n";
-            echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+// Método 5: Verificar si ADB está activo (indicador claro de conexión a PC)
+$comandoADB = 'adb shell getprop persist.sys.usb.config 2>/dev/null';
+$resultadoADB = shell_exec($comandoADB);
+
+if (!empty($resultadoADB)) {
+    $configUSB = trim($resultadoADB);
+    if (strpos(strtolower($configUSB), 'adb') !== false) {
+        echo $bold . $vermelho . "[!] Configuración USB incluye ADB: " . $configUSB . " (posible conexión a PC)\n";
+        $conexionPCDetectada = true;
+    } else {
+        echo $bold . $fverde . "[i] Configuración USB: " . $configUSB . " (sin ADB)\n";
+    }
+}
+
+// Mostrar resultado final - solo marcar como PC si hay múltiples evidencias
+$evidencias = count($eventosSospechosos);
+if ($conexionPCDetectada && $evidencias >= 2) {
+    echo $bold . $vermelho . "[!] Múltiples evidencias de conexión a PC detectadas (" . $evidencias . " eventos) - APLIQUE WO!\n\n";
+} elseif ($conexionPCDetectada && $evidencias == 1) {
+    echo $bold . $amarelo . "[!] Evidencia débil de posible conexión a PC (" . $evidencias . " evento) - revisar manualmente\n\n";
+} else {
+    echo $bold . $fverde . "[i] No se ha encontrado evidencia sólida de conexión a PC (solo cargador detectado)\n\n";
+}
+
+// Verificar historial de carga más detallado
+echo $bold . $azul . "[+] Verificando historial detallado de carga...\n";
+$comandoHistorialDetallado = 'adb shell dumpsys batterystats --checkin 2>/dev/null | grep -i "usb\|charge\|power" | tail -n 5';
+$resultadoHistorialDetallado = shell_exec($comandoHistorialDetallado);
+
+if (!empty($resultadoHistorialDetallado)) {
+    echo $bold . $amarelo . "[i] Historial de eventos USB/carga:\n";
+    echo $resultadoHistorialDetallado . "\n\n";
+} else {
+    echo $bold . $fverde . "[i] No se encontraron eventos USB/carga en el historial de batería\n\n";
+}
+                
+
+
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                echo $bold . $azul . "[+] Verificando aplicaciones desinstaladas recientemente...\n";
+
+// 1. Obtener lista actual de aplicaciones instaladas
+$comandoPaquetesActuales = 'adb shell pm list packages -f 2>/dev/null';
+$resultadoPaquetesActuales = shell_exec($comandoPaquetesActuales);
+
+$paquetesInstaladosActuales = [];
+if (!empty($resultadoPaquetesActuales)) {
+    $lineas = explode("\n", trim($resultadoPaquetesActuales));
+    foreach ($lineas as $linea) {
+        if (preg_match('/package:(.*\.apk)=([^\/]+)$/', $linea, $matches)) {
+            $paquetesInstaladosActuales[$matches[2]] = true;
         }
     }
 }
 
-$rutaDataApp = '/data/app';
-$comandoStat = 'adb shell stat ' . escapeshellarg($rutaDataApp) . ' 2>&1';
-$resultadoStat = shell_exec($comandoStat);
+// 2. Obtener historial de eventos recientes del sistema
+$comandoEventosRecientes = 'adb logcat -d -v time --pid=$(adb shell pidof -s system_server) 2>/dev/null | grep -E "PackageManager|ActivityManager|package.*install|package.*remove" | tail -n 30';
+$resultadoEventosRecientes = shell_exec($comandoEventosRecientes);
 
-if (strpos($resultadoStat, 'File:') !== false) {
-    preg_match('/Modify: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchModify);
-    preg_match('/Change: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)/', $resultadoStat, $matchChange);
+$paquetesDesinstaladosRecientes = [];
+$eventosDesinstalacion = [];
 
-    if ($matchModify && $matchChange) {
-        $dataModify = trim($matchModify[1]);
-        $dataChange = trim($matchChange[1]);
-
-        $dataModifyFormatada = preg_replace('/\.\d+.*$/', '', $dataModify);
-        $dataChangeFormatada = preg_replace('/\.\d+.*$/', '', $dataChange);
-
-        if ($dataModifyFormatada !== $dataChangeFormatada) {
-            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas\n";
-            echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
-            echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+if (!empty($resultadoEventosRecientes)) {
+    echo $bold . $amarelo . "[i] Analizando eventos recientes del sistema...\n";
+    
+    $lineas = explode("\n", trim($resultadoEventosRecientes));
+    foreach ($lineas as $linea) {
+        // Buscar eventos de desinstalación
+        if (strpos(strtolower($linea), 'remove') !== false || 
+            strpos(strtolower($linea), 'uninstall') !== false ||
+            strpos(strtolower($linea), 'delete') !== false) {
+            
+            // Extraer nombre del paquete
+            if (preg_match('/package:([a-zA-Z0-9._]+)/', $linea, $matches)) {
+                $paquete = $matches[1];
+                $eventosDesinstalacion[$paquete] = $linea;
+                
+                // Verificar si el paquete ya no está instalado
+                if (!isset($paquetesInstaladosActuales[$paquete])) {
+                    $paquetesDesinstaladosRecientes[$paquete] = $linea;
+                }
+            }
         }
     }
 }
+
+// 3. Verificar uso reciente de aplicaciones mediante UsageStats
+$comandoUsageStats = 'adb shell dumpsys usagestats 2>/dev/null | grep -A5 -B5 "MOVE_TO_FOREGROUND" | head -n 20';
+$resultadoUsageStats = shell_exec($comandoUsageStats);
+
+$aplicacionesUsadasRecientemente = [];
+if (!empty($resultadoUsageStats)) {
+    $lineas = explode("\n", trim($resultadoUsageStats));
+    foreach ($lineas as $linea) {
+        if (strpos($linea, 'package=') !== false) {
+            preg_match('/package=([a-zA-Z0-9._]+)/', $linea, $matches);
+            if (!empty($matches[1])) {
+                $paquete = $matches[1];
+                $aplicacionesUsadasRecientemente[$paquete] = true;
+            }
+        }
+    }
+}
+
+// 4. Verificar aplicaciones que fueron usadas recientemente pero ya no están instaladas
+$aplicacionesUsadasYDesinstaladas = [];
+foreach ($aplicacionesUsadasRecientemente as $paquete => $valor) {
+    if (!isset($paquetesInstaladosActuales[$paquete])) {
+        $aplicacionesUsadasYDesinstaladas[$paquete] = true;
+    }
+}
+
+// 5. Mostrar resultados
+$desinstalacionesDetectadas = false;
+
+if (!empty($paquetesDesinstaladosRecientes)) {
+    echo $bold . $vermelho . "[!] Aplicaciones desinstaladas recientemente detectadas:\n";
+    foreach ($paquetesDesinstaladosRecientes as $paquete => $evento) {
+        echo $bold . $vermelho . "  - Paquete: " . $paquete . "\n";
+        echo $bold . $amarelo . "    Evento: " . $evento . "\n";
+        
+        // Verificar si fue usada recientemente
+        if (isset($aplicacionesUsadasYDesinstaladas[$paquete])) {
+            echo $bold . $vermelho . "    FUE USADA RECIENTEMENTE Y LUEGO DESINSTALADA!\n";
+        }
+        
+        echo "\n";
+        $desinstalacionesDetectadas = true;
+    }
+}
+
+if (!empty($aplicacionesUsadasYDesinstaladas)) {
+    foreach ($aplicacionesUsadasYDesinstaladas as $paquete => $valor) {
+        if (!isset($paquetesDesinstaladosRecientes[$paquete])) {
+            echo $bold . $vermelho . "[!] Aplicación usada recientemente y desinstalada: " . $paquete . "\n";
+            
+            // Buscar logs relacionados con esta aplicación
+            $comandoLogsApp = 'adb logcat -d -v time 2>/dev/null | grep -i ' . escapeshellarg($paquete) . ' | tail -n 3';
+            $resultadoLogsApp = shell_exec($comandoLogsApp);
+            
+            if (!empty($resultadoLogsApp)) {
+                echo $bold . $amarelo . "    Últimos logs:\n";
+                echo $resultadoLogsApp . "\n";
+            }
+            
+            echo "\n";
+            $desinstalacionesDetectadas = true;
+        }
+    }
+}
+
+if ($desinstalacionesDetectadas) {
+    echo $bold . $vermelho . "[!] Se detectaron aplicaciones desinstaladas recientemente - APLIQUE WO!\n\n";
+} else {
+    echo $bold . $fverde . "[i] No se encontraron aplicaciones desinstaladas recientemente\n\n";
+    
+    // Mostrar eventos de desinstalación encontrados (para depuración)
+    if (!empty($eventosDesinstalacion)) {
+        echo $bold . $amarelo . "[i] Eventos de desinstalación encontrados (pero las apps siguen instaladas):\n";
+        foreach ($eventosDesinstalacion as $paquete => $evento) {
+            echo "  - " . $paquete . ": " . $evento . "\n";
+        }
+        echo "\n";
+    }
+}
+
+// 6. Verificar directorio de datos de aplicaciones eliminadas
+echo $bold . $azul . "[+] Verificando datos residuales de aplicaciones...\n";
+$comandoDatosResiduales = 'adb shell "find /data/data -maxdepth 1 -type d -mtime -1 2>/dev/null | head -n 10"';
+$resultadoDatosResiduales = shell_exec($comandoDatosResiduales);
+
+if (!empty($resultadoDatosResiduales)) {
+    $directorios = explode("\n", trim($resultadoDatosResiduales));
+    foreach ($directorios as $directorio) {
+        $paquete = basename($directorio);
+        if (!isset($paquetesInstaladosActuales[$paquete])) {
+            echo $bold . $vermelho . "[!] Directorio de datos residuales encontrado: " . $directorio . "\n";
+            echo $bold . $amarelo . "    La aplicación " . $paquete . " no está instalada pero tiene datos residuales\n";
+            
+            // Verificar cuándo fue modificado por última vez
+            $comandoModificacion = 'adb shell stat -c "%y" ' . $directorio . ' 2>/dev/null';
+            $resultadoModificacion = shell_exec($comandoModificacion);
+            
+            if (!empty($resultadoModificacion)) {
+                echo $bold . $amarelo . "    Última modificación: " . trim($resultadoModificacion) . "\n";
+            }
+            
+            echo "\n";
+            $desinstalacionesDetectadas = true;
+        }
+    }
+}
+                
+                
+                
+                
+                
                 
                 
                 
@@ -2273,6 +2818,13 @@ if (strpos($resultadoStat, 'File:') !== false) {
                 
                 
                 
+                
+                
+                
+                
+                
+                
+                
                                 
                 
                  echo $bold . $azul . "[+] Verificando modificaciones en pastas adicionais...\n";
@@ -2410,6 +2962,9 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
     echo $bold . $amarelo . "[!] La ruta no existe o no se pudo acceder: " . $rutaDownload . "\n\n";
 }
 
+
+
+
 // Verificar ruta /data/app
 $rutaDataApp = '/data/app';
 $comandoStat = 'adb shell "stat ' . $rutaDataApp . ' 2>/dev/null"';
@@ -2442,27 +2997,81 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
         $modifyTimestamp = strtotime($dataModifyFormatada);
         $changeTimestamp = strtotime($dataChangeFormatada);
         
-        // Verificar si hubo modificación (Modify ≠ Change)
+        // --- VERIFICACIÓN SI LA MODIFICACIÓN ES POR TERMUX ---
+        $esPorTermux = false;
+        $comandoTermux = 'adb shell "dumpsys package com.termux 2>/dev/null | grep firstInstallTime"';
+        $resultadoTermux = shell_exec($comandoTermux);
+        
+        if (!empty($resultadoTermux) && preg_match('/firstInstallTime=(\d+)/', $resultadoTermux, $matchTermux)) {
+            $termuxInstallTime = intval($matchTermux[1]) / 1000; // Convertir milisegundos a segundos
+            // Comparar con margen de 5 minutos (300 segundos)
+            if (abs($modifyTimestamp - $termuxInstallTime) < 300) {
+                $esPorTermux = true;
+                echo $bold . $amarelo . "[i] Última modificación perdida por la instalación de Termux\n";
+                echo $bold . $amarelo . "[i] Hora de instalación de Termux: " . date('Y-m-d H:i:s', $termuxInstallTime) . "\n";
+                echo $bold . $amarelo . "[i] Hora de modificación de /data/app: " . date('Y-m-d H:i:s', $modifyTimestamp) . "\n\n";
+            }
+        }
+        
+        // --- DETECTAR EL DIRECTORIO MÁS RECIENTE EN /data/app ---
+        $paqueteModificado = null;
+        $comandoListaApps = 'adb shell "ls -ltd /data/app/*/ 2>/dev/null | head -n 1"';
+        $resultadoListaApps = shell_exec($comandoListaApps);
+        
+        if (!empty($resultadoListaApps)) {
+            // Extraer la fecha y el nombre del directorio
+            if (preg_match('/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/', $resultadoListaApps, $matchFecha)) {
+                $fechaDir = $matchFecha[0];
+                $timestampDir = strtotime($fechaDir);
+                // Comparar con la modificación de /data/app (con margen de 1 minuto)
+                if (abs($timestampDir - $modifyTimestamp) < 60) {
+                    // Extraer el nombre del paquete (el directorio generalmente tiene el formato nombrePaquete-XXXXX)
+                    if (preg_match('/\/data\/app\/([^\/]+)\/$/', $resultadoListaApps, $matchPaquete)) {
+                        $paqueteModificado = $matchPaquete[1];
+                        // Eliminar cualquier sufijo (-XXXXX) para obtener el nombre del paquete puro
+                        $paqueteModificado = preg_replace('/-\w+$/', '', $paqueteModificado);
+                    }
+                }
+            }
+        }
+        
+        // Verificar si hubo modificación (Modify ≠ Change) y no es por Termux
         $modificacionDetectada = false;
-        if ($dataModifyFormatada !== $dataChangeFormatada) {
-            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas, tener en cuenta la hora de la instalación de la SS\n";
-            echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
-            echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n\n";
+        if ($dataModifyFormatada !== $dataChangeFormatada && !$esPorTermux) {
+            if ($paqueteModificado) {
+                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+                echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n";
+                echo $bold . $amarelo . "[i] Aplicación modificada: " . $paqueteModificado . "\n\n";
+            } else {
+                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+                echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n";
+                echo $bold . $vermelho . "[!] Se eliminó una aplicación y se detectó completamente 100% detectado\n\n";
+            }
             $modificacionDetectada = true;
         }
         
-        // Verificar si la modificación fue reciente (últimas 4 horas)
+        // Verificar si la modificación fue reciente (últimas 4 horas) y no es por Termux
         $horasLimite = 4;
         $tiempoLimite = $horasLimite * 3600; // 4 horas en segundos
         
-        if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado) {
-            echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas, tener en cuenta la hora de la instalación de la SS\n";
-            echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
-            echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n\n";
+        if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado && !$esPorTermux) {
+            if ($paqueteModificado) {
+                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+                echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n";
+                echo $bold . $amarelo . "[i] Aplicación modificada: " . $paqueteModificado . "\n\n";
+            } else {
+                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas, tener en cuenta la hora de la instalación de la SS\n";
+                echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
+                echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n";
+                echo $bold . $vermelho . "[!] Se eliminó una aplicación y se detectó completamente 100% detectado\n\n";
+            }
             $modificacionDetectada = true;
         }
         
-        if (!$modificacionDetectada && !$bypassDetectado) {
+        if (!$modificacionDetectada && !$bypassDetectado && !$esPorTermux) {
             echo $bold . $fverde . "[i] No se detectaron modificaciones recientes en: " . $rutaDataApp . "\n\n";
         }
     } else {
