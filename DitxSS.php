@@ -2661,59 +2661,110 @@ if (!empty($resultadoHistorialDetallado)) {
                 
                 
                 
-                
-echo $bold . $azul . "[+] Verificando aplicaciones desinstaladas recientemente que usaron batería...\n";
+echo $bold . $azul . "[+] Verificando aplicaciones desinstaladas recientemente con uso de batería...\n";
 
-// Obtener estadísticas de uso de batería de las últimas 3 horas
-$comandoBateria = 'adb shell dumpsys batterystats --checkin 2>/dev/null | grep -E "([0-9]+,){4}apk|([0-9]+,){4}uid" | tail -n 20';
+// 1. Obtener estadísticas detalladas de uso de batería
+$comandoBateria = 'adb shell dumpsys batterystats --checkin 2>/dev/null | grep -E "([0-9]+,){4}(apk|uid)" | head -n 50';
 $resultadoBateria = shell_exec($comandoBateria);
 
 $paquetesConUso = [];
 $uidsConUso = [];
 
 if (!empty($resultadoBateria)) {
-    echo $bold . $amarelo . "[i] Estadísticas de uso de batería recientes:\n";
-    echo $resultadoBateria . "\n";
+    echo $bold . $amarelo . "[i] Analizando estadísticas de uso de batería...\n";
     
-    // Parsear resultados para obtener UIDs y nombres de paquetes
     $lineas = explode("\n", trim($resultadoBateria));
     foreach ($lineas as $linea) {
         $partes = explode(",", trim($linea));
         if (count($partes) >= 6) {
             if ($partes[3] === "apk") {
-                $paquetesConUso[$partes[4]] = $partes[5];
+                $uid = $partes[4];
+                $paquete = $partes[5];
+                $paquetesConUso[$uid] = $paquete;
             } elseif ($partes[3] === "uid") {
-                $uidsConUso[$partes[4]] = true;
+                $uid = $partes[4];
+                $uidsConUso[$uid] = true;
             }
         }
     }
 }
 
-// Verificar qué paquetes siguen instalados
+// 2. Obtener lista de aplicaciones instaladas actualmente
+$comandoPaquetes = 'adb shell pm list packages -f 2>/dev/null';
+$resultadoPaquetes = shell_exec($comandoPaquetes);
+
+$paquetesInstalados = [];
+if (!empty($resultadoPaquetes)) {
+    $lineas = explode("\n", trim($resultadoPaquetes));
+    foreach ($lineas as $linea) {
+        if (preg_match('/package:(.*\.apk)=([^\/]+)$/', $linea, $matches)) {
+            $paquetesInstalados[$matches[2]] = true;
+        }
+    }
+}
+
+// 3. Verificar qué paquetes con uso de batería no están instalados
 $paquetesDesinstalados = [];
 foreach ($paquetesConUso as $uid => $paquete) {
-    // Verificar si el paquete está instalado
-    $comandoVerificar = 'adb shell pm list packages 2>/dev/null | grep -w ' . escapeshellarg($paquete);
-    $resultadoVerificar = shell_exec($comandoVerificar);
-    
-    if (empty(trim($resultadoVerificar))) {
+    if (!isset($paquetesInstalados[$paquete])) {
         $paquetesDesinstalados[$paquete] = $uid;
     }
 }
 
-// Mostrar resultados
+// 4. Verificar también UIDs con uso que no tienen paquete asociado
+foreach ($uidsConUso as $uid => $valor) {
+    if (!isset($paquetesConUso[$uid])) {
+        // Intentar encontrar el nombre del paquete para este UID
+        $comandoPaquetePorUID = 'adb shell cmd package list packages --uid ' . $uid . ' 2>/dev/null';
+        $resultadoPaquetePorUID = shell_exec($comandoPaquetePorUID);
+        
+        if (!empty($resultadoPaquetePorUID)) {
+            if (preg_match('/package:([^\/]+)$/', $resultadoPaquetePorUID, $matches)) {
+                $paquete = $matches[1];
+                if (!isset($paquetesInstalados[$paquete])) {
+                    $paquetesDesinstalados[$paquete] = $uid;
+                }
+            }
+        } else {
+            // Si no encontramos el paquete por UID, puede estar desinstalado
+            echo $bold . $amarelo . "[i] UID $uid tiene uso de batería pero no se encuentra el paquete asociado\n";
+        }
+    }
+}
+
+// 5. Buscar en logs eventos de desinstalación
+$comandoLogsDesinstalacion = 'adb logcat -d -v time 2>/dev/null | grep -i "package.*remove\|uninstall\|delete" | tail -n 10';
+$resultadoLogsDesinstalacion = shell_exec($comandoLogsDesinstalacion);
+
+$logsDesinstalacion = [];
+if (!empty($resultadoLogsDesinstalacion)) {
+    $lineas = explode("\n", trim($resultadoLogsDesinstalacion));
+    foreach ($lineas as $linea) {
+        if (preg_match('/package:([^\/ ]+)/', $linea, $matches)) {
+            $paquete = $matches[1];
+            $logsDesinstalacion[$paquete] = $linea;
+        }
+    }
+}
+
+// 6. Mostrar resultados
 if (!empty($paquetesDesinstalados)) {
+    echo $bold . $vermelho . "[!] Aplicaciones desinstaladas con uso reciente de batería:\n";
     foreach ($paquetesDesinstalados as $paquete => $uid) {
-        echo $bold . $vermelho . "[!] Aplicación desinstalada recientemente con uso de batería: " . $paquete . "\n";
-        echo $bold . $amarelo . "[i] UID: " . $uid . "\n";
+        echo $bold . $vermelho . "  - Paquete: " . $paquete . " (UID: " . $uid . ")\n";
         
-        // Buscar logs recientes relacionados con esta aplicación
-        $comandoLogs = 'adb logcat -d -v time 2>/dev/null | grep -i ' . escapeshellarg($paquete) . ' | tail -n 3';
-        $resultadoLogs = shell_exec($comandoLogs);
+        // Buscar logs específicos de esta aplicación
+        $comandoLogsApp = 'adb logcat -d -v time 2>/dev/null | grep -i ' . escapeshellarg($paquete) . ' | tail -n 3';
+        $resultadoLogsApp = shell_exec($comandoLogsApp);
         
-        if (!empty($resultadoLogs)) {
-            echo $bold . $amarelo . "[i] Últimos logs de la aplicación:\n";
-            echo $resultadoLogs . "\n";
+        if (!empty($resultadoLogsApp)) {
+            echo $bold . $amarelo . "    Últimos logs:\n";
+            echo $resultadoLogsApp . "\n";
+        }
+        
+        // Verificar si hay logs de desinstalación para este paquete
+        if (isset($logsDesinstalacion[$paquete])) {
+            echo $bold . $amarelo . "    Log de desinstalación: " . $logsDesinstalacion[$paquete] . "\n";
         }
         
         echo "\n";
@@ -2723,30 +2774,16 @@ if (!empty($paquetesDesinstalados)) {
     echo $bold . $fverde . "[i] No se encontraron aplicaciones desinstaladas con uso reciente de batería\n\n";
 }
 
-// Verificar también UIDs sin paquete correspondiente
-$uidsSinPaquete = [];
-foreach ($uidsConUso as $uid => $valor) {
-    if (!isset($paquetesConUso[$uid])) {
-        $uidsSinPaquete[] = $uid;
-    }
-}
-
-if (!empty($uidsSinPaquete)) {
-    echo $bold . $amarelo . "[i] UIDs con uso de batería pero sin paquete asociado:\n";
-    foreach ($uidsSinPaquete as $uid) {
-        echo "  - UID: " . $uid . "\n";
-        
-        // Buscar información sobre este UID
-        $comandoUID = 'adb shell dumpsys package --uid ' . $uid . ' 2>/dev/null';
-        $resultadoUID = shell_exec($comandoUID);
-        
-        if (!empty($resultadoUID)) {
-            echo $bold . $amarelo . "[i] Información del UID:\n";
-            echo $resultadoUID . "\n";
-        }
+// 7. Verificar logs de desinstalación en general
+if (!empty($logsDesinstalacion)) {
+    echo $bold . $azul . "[+] Eventos de desinstalación recientes encontrados:\n";
+    foreach ($logsDesinstalacion as $paquete => $log) {
+        echo $bold . $amarelo . "  - " . $paquete . ": " . $log . "\n";
     }
     echo "\n";
 }
+                
+                
                 
                 
                 
