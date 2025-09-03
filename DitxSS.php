@@ -94,7 +94,7 @@ function verificar_login($usuario, $contrasena) {
 
 // Función de login
 function login() {
-    global $cln, $bold, $vermelho, $verde, $amarelo;
+    global $cln, $bold, $vermelho, $verde, $amarelo, $azul, $lazul;
     
     system("clear");
     keller_banner();
@@ -140,7 +140,7 @@ function login() {
 
 // Función para registrar un nuevo usuario (solo para administración)
 function registrar_usuario() {
-    global $firebase_db_url, $firebase_api_key;
+    global $firebase_db_url, $firebase_api_key, $bold, $azul, $lazul, $vermelho, $verde, $cln;
     
     echo $bold . $azul . "\n      +--------------------------------------------------------------+";
     echo $bold . $azul . "\n      +                     Registro de Nuevo Usuario                +";
@@ -225,6 +225,11 @@ if (!login()) {
 system("clear");
 keller_banner();
 sleep(2);
+
+
+
+
+
 
 
 
