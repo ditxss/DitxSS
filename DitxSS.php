@@ -1,5 +1,11 @@
 <?php
 
+// Configuración de Firebase
+$firebase_project_id = "ditx-ss";
+$firebase_api_key = "AIzaSyAXCLuareJqZr3Lp1bGStdcxbcanurO5pI";
+$firebase_db_url = "https://ditx-ss-default-rtdb.firebaseio.com";
+
+// Colores para la terminal
 $branco = "\e[97m";
 $preto = "\e[30m\e[1m";
 $amarelo = "\e[93m";
@@ -21,6 +27,8 @@ $vermelhobg = "\e[101m";
 $cinza = "\e[37m";
 $ciano = "\e[36m";
 $bold   = "\e[1m";
+
+// Función para mostrar el banner
 function keller_banner(){
   echo "\e[37m
            DitxSS Android\e[36m Fucking Cheaters\e[91m\e[37m discord.gg/spacex\e[91m
@@ -38,17 +46,162 @@ function keller_banner(){
                             |____/ |____/    
                         
 
-
                     \e[36m{C} Mod By - DitxSS | Credits for Sheik                                   
 \e[32m
   \n";
 }
 
+// Función para solicitar entrada del usuario
+function inputusuario($message){
+  global $branco, $bold, $verdebg, $vermelhobg, $azulbg, $cln, $lazul, $fverde;
+  $amarelobg = "\e[100m";
+  $inputstyle = $cln . $bold . $lazul . "[#] " . $message . ": " . $fverde ;
+  echo $inputstyle;
+}
 
-echo $cln;
+// Función para verificar credenciales con Firebase
+function verificar_login($usuario, $contrasena) {
+    global $firebase_db_url, $firebase_api_key;
+    
+    // URL para verificar el usuario en Firebase
+    $url = $firebase_db_url . "/users.json?auth=" . $firebase_api_key;
+    
+    // Realizar solicitud a Firebase
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    
+    $response = curl_exec($ch);
+    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($httpcode == 200) {
+        $users = json_decode($response, true);
+        
+        if ($users) {
+            foreach ($users as $user) {
+                if (isset($user['username']) && $user['username'] === $usuario && 
+                    isset($user['password']) && password_verify($contrasena, $user['password'])) {
+                    return true;
+                }
+            }
+        }
+    }
+    
+    return false;
+}
 
-function atualizar()
-{
+// Función de login
+function login() {
+    global $cln, $bold, $vermelho, $verde, $amarelo;
+    
+    system("clear");
+    keller_banner();
+    
+    echo $bold . $azul . "\n      +--------------------------------------------------------------+";
+    echo $bold . $azul . "\n      +                     Sistema de Autenticación                 +";
+    echo $bold . $azul . "\n      +--------------------------------------------------------------+\n\n";
+    
+    $intentos = 0;
+    $max_intentos = 3;
+    
+    while ($intentos < $max_intentos) {
+        inputusuario("Usuario");
+        $usuario = trim(fgets(STDIN, 1024));
+        
+        // Ocultar la contraseña mientras se escribe
+        echo $bold . $lazul . "[#] Contraseña: " . $cln;
+        system('stty -echo');
+        $contrasena = trim(fgets(STDIN, 1024));
+        system('stty echo');
+        echo "\n";
+        
+        if (verificar_login($usuario, $contrasena)) {
+            echo $bold . $verde . "\n[+] Autenticación exitosa. Bienvenido, " . $usuario . "!\n\n" . $cln;
+            sleep(2);
+            return true;
+        } else {
+            $intentos++;
+            $restantes = $max_intentos - $intentos;
+            
+            echo $bold . $vermelho . "\n[!] Credenciales incorrectas. Intentos restantes: " . $restantes . "\n\n" . $cln;
+            
+            if ($intentos >= $max_intentos) {
+                echo $bold . $vermelho . "[!] Demasiados intentos fallidos. Saliendo...\n" . $cln;
+                sleep(2);
+                exit;
+            }
+        }
+    }
+    
+    return false;
+}
+
+// Función para registrar un nuevo usuario (solo para administración)
+function registrar_usuario() {
+    global $firebase_db_url, $firebase_api_key;
+    
+    echo $bold . $azul . "\n      +--------------------------------------------------------------+";
+    echo $bold . $azul . "\n      +                     Registro de Nuevo Usuario                +";
+    echo $bold . $azul . "\n      +--------------------------------------------------------------+\n\n";
+    
+    inputusuario("Nuevo usuario");
+    $nuevo_usuario = trim(fgets(STDIN, 1024));
+    
+    echo $bold . $lazul . "[#] Nueva contraseña: " . $cln;
+    system('stty -echo');
+    $nueva_contrasena = trim(fgets(STDIN, 1024));
+    system('stty echo');
+    echo "\n";
+    
+    echo $bold . $lazul . "[#] Confirmar contraseña: " . $cln;
+    system('stty -echo');
+    $confirmar_contrasena = trim(fgets(STDIN, 1024));
+    system('stty echo');
+    echo "\n";
+    
+    if ($nueva_contrasena !== $confirmar_contrasena) {
+        echo $bold . $vermelho . "[!] Las contraseñas no coinciden.\n" . $cln;
+        return false;
+    }
+    
+    // Hash de la contraseña
+    $contrasena_hash = password_hash($nueva_contrasena, PASSWORD_DEFAULT);
+    
+    // Preparar datos para Firebase
+    $user_data = [
+        'username' => $nuevo_usuario,
+        'password' => $contrasena_hash,
+        'created' => date('Y-m-d H:i:s')
+    ];
+    
+    // URL para agregar usuario a Firebase
+    $url = $firebase_db_url . "/users.json?auth=" . $firebase_api_key;
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($user_data));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    
+    $response = curl_exec($ch);
+    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($httpcode == 200) {
+        echo $bold . $verde . "[+] Usuario registrado exitosamente.\n" . $cln;
+        return true;
+    } else {
+        echo $bold . $vermelho . "[!] Error al registrar usuario: " . $httpcode . "\n" . $cln;
+        return false;
+    }
+}
+
+// Función para actualizar el script
+function actualizar() {
     global $cln, $bold, $fverde;
     echo "\n\e[91m\e[1m[+] DitxSS Update [+]\nActualizando Espere Un Momento...\n\n$cln";
     system("git fetch origin && git reset --hard origin/master && git clean -f -d");
@@ -56,17 +209,27 @@ function atualizar()
     exit;
 }
 
-function inputusuario($message){
-  global $branco, $bold, $verdebg, $vermelhobg, $azulbg, $cln, $lazul, $fverde;
-  $amarelobg = "\e[100m";
-  $inputstyle = $cln . $bold . $lazul . "[#] " . $message . ": " . $fverde ;
-echo $inputstyle;
+// Verificar si se solicita registro de nuevo usuario
+if (isset($argv[1]) && $argv[1] === '--register') {
+    if (registrar_usuario()) {
+        exit;
+    }
 }
 
+// Sistema de autenticación
+if (!login()) {
+    exit;
+}
+
+// Limpiar pantalla y mostrar banner después del login
 system("clear");
 keller_banner();
-sleep(5);
-echo "\n";
+sleep(2);
+
+
+
+
+
 
 menuscanner:
 
@@ -1382,12 +1545,12 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
         $modificacionDetectada = false;
         if ($dataModifyFormatada !== $dataChangeFormatada && !$esPorTermux) {
             if ($paqueteModificado) {
-                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO\n";
                 echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
                 echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n";
                 echo $bold . $amarelo . "[i] Aplicación modificada: " . $paqueteModificado . "\n\n";
             } else {
-                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO\n";
                 echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
                 echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n";
                 echo $bold . $vermelho . "[!] Se eliminó una aplicación y se detectó completamente 100% detectado\n\n";
@@ -1401,12 +1564,12 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
         
         if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado && !$esPorTermux) {
             if ($paqueteModificado) {
-                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO\n";
                 echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
                 echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n";
                 echo $bold . $amarelo . "[i] Aplicación modificada: " . $paqueteModificado . "\n\n";
             } else {
-                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas, tener en cuenta la hora de la instalación de la SS\n";
+                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO\n";
                 echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
                 echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n";
                 echo $bold . $vermelho . "[!] Se eliminó una aplicación y se detectó completamente 100% detectado\n\n";
@@ -3039,12 +3202,12 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
         $modificacionDetectada = false;
         if ($dataModifyFormatada !== $dataChangeFormatada && !$esPorTermux) {
             if ($paqueteModificado) {
-                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO\n";
                 echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
                 echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n";
                 echo $bold . $amarelo . "[i] Aplicación modificada: " . $paqueteModificado . "\n\n";
             } else {
-                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $vermelho . "[!]  posibilidad eliminación de app muy alta aplicar WO\n";
                 echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
                 echo $bold . $amarelo . "[i] Horario de modificación: " . $dataChangeFormatada . "\n";
                 echo $bold . $vermelho . "[!] Se eliminó una aplicación y se detectó completamente 100% detectado\n\n";
@@ -3058,12 +3221,12 @@ if (!empty($resultadoStat) && strpos($resultadoStat, 'File:') !== false) {
         
         if (($currentTime - $modifyTimestamp) < $tiempoLimite && !$bypassDetectado && !$esPorTermux) {
             if ($paqueteModificado) {
-                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospecha sino consultar con ditx para más información\n";
+                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO\n";
                 echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
                 echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n";
                 echo $bold . $amarelo . "[i] Aplicación modificada: " . $paqueteModificado . "\n\n";
             } else {
-                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO en caso de sospechas, tener en cuenta la hora de la instalación de la SS\n";
+                echo $bold . $vermelho . "[!] posibilidad eliminación de app muy alta aplicar WO\n";
                 echo $bold . $amarelo . "[i] Ruta: " . $rutaDataApp . "\n";
                 echo $bold . $amarelo . "[i] Última modificación: " . $dataModifyFormatada . "\n";
                 echo $bold . $vermelho . "[!] Se eliminó una aplicación y se detectó completamente 100% detectado\n\n";
